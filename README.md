@@ -1,0 +1,2 @@
+# MintMeister
+Qortal Minter Mapping
