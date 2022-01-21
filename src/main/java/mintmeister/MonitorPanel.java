@@ -59,6 +59,7 @@ public class MonitorPanel extends javax.swing.JPanel
     private boolean coreOnline;
     private boolean priceButtonReady = true;
     protected String blockChainFolder;
+    protected String dataFolder;
     private boolean mintingChecked = false;
     private int mintingAccount = 0;
 
@@ -95,8 +96,13 @@ public class MonitorPanel extends javax.swing.JPanel
                 {
                     JSONObject jsonObject = new JSONObject(jsonString);
                     
-                    String bcf = jsonObject.optString("blockchainFolder");
-                    blockChainFolder = bcf.isBlank() ? null : bcf;
+                    String folderString = jsonObject.optString("qortalFolder");
+                    File qortalDir = new File(folderString);
+                    if(!folderString.isBlank() && qortalDir.isDirectory())
+                    {
+                        blockChainFolder = folderString + "/db";
+                        dataFolder = folderString + "/data";
+                    }                    
                 }
                 
             }
@@ -109,7 +115,7 @@ public class MonitorPanel extends javax.swing.JPanel
     
     private DefaultMutableTreeNode root,statusRoot, statusNode,nodeNode,peers,
             mintingNode,dataNode,uptimeNode,syncNode,blockheightNode,chainHeighNode,
-            buildversionNode,blockchainNode,spaceLeftNode,peersNode,allMintersNode,
+            buildversionNode,blockchainNode,QDN_node,spaceLeftNode,peersNode,allMintersNode,
             knownPeersNode,mintingAccountNode,blocksMintedNode,balanceNode,levelNode,
             dataUsageNode,averageRateNode,minuteRateNode,hourRateNode,dayRateNode,
             pricesNode,qortToLtcNode,ltcToQortNode,qortToDogeNode,dogeToQortNode;    
@@ -138,9 +144,14 @@ public class MonitorPanel extends javax.swing.JPanel
         {            
             blockchainNode = new DefaultMutableTreeNode(Main.BUNDLE.getString("chainSizeDefault"));
             nodeNode.add(blockchainNode);
+            if(dataFolder != null)
+            {            
+                QDN_node = new DefaultMutableTreeNode("QDN data size");
+                nodeNode.add(QDN_node);
+            }
             spaceLeftNode = new DefaultMutableTreeNode(Main.BUNDLE.getString("spaceLeftDefault"));
             nodeNode.add(spaceLeftNode);
-        }
+        } 
         uptimeNode = new DefaultMutableTreeNode("uptimeDefault");
         nodeNode.add(uptimeNode);
         buildversionNode = new DefaultMutableTreeNode(Main.BUNDLE.getString("buildVersionDefault"));
@@ -457,11 +468,19 @@ public class MonitorPanel extends javax.swing.JPanel
                     long size = Utilities.getDirectorySize(folder);
                     monitorTreeModel.valueForPathChanged(new TreePath(blockchainNode.getPath()), 
                             String.format(Main.BUNDLE.getString("blockChainSizeDBM") + "%sMb",
-                                NumberFormat.getIntegerInstance().format(size / 1000000)));
+                                NumberFormat.getIntegerInstance().format(size / 1000000)));   
                     monitorTreeModel.valueForPathChanged(new TreePath(spaceLeftNode.getPath()), 
                             String.format(Main.BUNDLE.getString("spaceLeftDBM") + "%sMb",
-                                NumberFormat.getIntegerInstance().format(folder.getFreeSpace() / 1000000)));              
-                }  
+                                NumberFormat.getIntegerInstance().format(folder.getFreeSpace() / 1000000)));          
+                    if(dataFolder != null)
+                    {
+                        folder = new File(dataFolder);
+                        size = Utilities.getDirectorySize(folder);
+                        monitorTreeModel.valueForPathChanged(new TreePath(QDN_node.getPath()), 
+                                String.format("QDN data size: %sMb",
+                                    NumberFormat.getIntegerInstance().format(size / 1000000)));
+                    }           
+                }               
             }
             catch(ConnectException e)
             {
@@ -600,7 +619,7 @@ public class MonitorPanel extends javax.swing.JPanel
         refreshButton = new javax.swing.JButton();
         pingLabel = new javax.swing.JLabel();
         pricesButton = new javax.swing.JButton();
-        setBlockchainFolderButton = new javax.swing.JButton();
+        setQortalFolder = new javax.swing.JButton();
 
         monitorPanel.setLayout(new java.awt.GridBagLayout());
 
@@ -660,12 +679,12 @@ public class MonitorPanel extends javax.swing.JPanel
         gridBagConstraints.insets = new java.awt.Insets(8, 10, 8, 5);
         monitorPanel.add(pricesButton, gridBagConstraints);
 
-        setBlockchainFolderButton.setText("Set Qortal db folder");
-        setBlockchainFolderButton.addActionListener(new java.awt.event.ActionListener()
+        setQortalFolder.setText("Set Qortal folder");
+        setQortalFolder.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
             {
-                setBlockchainFolderButtonActionPerformed(evt);
+                setQortalFolderActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -673,7 +692,7 @@ public class MonitorPanel extends javax.swing.JPanel
         gridBagConstraints.gridy = 0;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
         gridBagConstraints.insets = new java.awt.Insets(0, 0, 0, 10);
-        monitorPanel.add(setBlockchainFolderButton, gridBagConstraints);
+        monitorPanel.add(setQortalFolder, gridBagConstraints);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -766,10 +785,12 @@ public class MonitorPanel extends javax.swing.JPanel
         thread.start();
     }//GEN-LAST:event_pricesButtonActionPerformed
 
-    private void setBlockchainFolderButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_setBlockchainFolderButtonActionPerformed
-    {//GEN-HEADEREND:event_setBlockchainFolderButtonActionPerformed
-        JOptionPane.showMessageDialog(this, Utilities.AllignCenterHTML("If you're running this app on the same system as your Qortal core<br/>"
-                + "you can set the location of the blockchain folder to monitor its size<br/>You can find the 'db' folder in the Qortal main folder"));
+    private void setQortalFolderActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_setQortalFolderActionPerformed
+    {//GEN-HEADEREND:event_setQortalFolderActionPerformed
+        JOptionPane.showMessageDialog(this, Utilities.AllignCenterHTML(
+                    "If you're running this app on the same system as your<br/>"
+                + " Qortal core you can set the location of the Qortal folder<br/>"
+                + " to monitor the size of your blockchain and QDN data<br/><br/>Please select the main 'qortal' folder in the file chooser menu"));
         
         JFileChooser jfc = new JFileChooser(System.getProperty("user.home"));
         jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -777,22 +798,46 @@ public class MonitorPanel extends javax.swing.JPanel
 
         if (returnValue == JFileChooser.APPROVE_OPTION)
         {            
-            File selectedDirectory = jfc.getSelectedFile();    
-            File propertiesFile = new File(System.getProperty("user.dir") + "/bin/settings.json");
-            if(propertiesFile.exists())
+            File selectedDirectory = jfc.getSelectedFile();   
+            if(!selectedDirectory.getName().equals("qortal"))
+            {
+                JOptionPane.showMessageDialog(this, Utilities.AllignCenterHTML("The directory should be named 'qortal' "
+                        + "<br/>Qortal directory was not set"));
+                return;
+            }
+            File settingsFile = new File(System.getProperty("user.dir") + "/bin/settings.json");
+            if(settingsFile.exists())
             {
                 try
                 {
-                    String jsonString = Files.readString(propertiesFile.toPath());
+                    String jsonString = Files.readString(settingsFile.toPath());
                     if(jsonString != null)
                     {
                         JSONObject jsonObject = new JSONObject(jsonString);
-                        jsonObject.put("blockchainFolder",selectedDirectory.getPath());
-                        blockChainFolder = selectedDirectory.getPath();
-                        try (BufferedWriter writer = new BufferedWriter(new FileWriter(propertiesFile))) 
+                        jsonObject.put("qortalFolder",selectedDirectory.getPath());
+                        
+                        File blockchainDir = new File(selectedDirectory.getPath() + "/db");
+                        if(!blockchainDir.isDirectory())
+                            blockchainDir.mkdir();
+                        blockChainFolder = blockchainDir.getPath();
+                        File dataDir = new File(selectedDirectory.getPath() + "/data");
+                        if(!dataDir.isDirectory())
+                            dataDir.mkdir();
+                        dataFolder = dataDir.getPath();
+                        try (BufferedWriter writer = new BufferedWriter(new FileWriter(settingsFile))) 
                         {
                             writer.write(jsonObject.toString());
-                        }                        
+                        }                            
+                        if(blockchainNode == null)
+                        {                            
+                            blockchainNode = new DefaultMutableTreeNode(Main.BUNDLE.getString("chainSizeDefault"));
+                            nodeNode.add(blockchainNode);  
+                            QDN_node = new DefaultMutableTreeNode("QDN data size");
+                            nodeNode.add(QDN_node);
+                            spaceLeftNode = new DefaultMutableTreeNode(Main.BUNDLE.getString("spaceLeftDefault"));
+                            nodeNode.add(spaceLeftNode);
+                            monitorTreeModel.nodeStructureChanged(nodeNode);
+                        }    
                     }
                 }
                 catch (IOException | JSONException e)
@@ -801,7 +846,7 @@ public class MonitorPanel extends javax.swing.JPanel
                 }
             }
         }
-    }//GEN-LAST:event_setBlockchainFolderButtonActionPerformed
+    }//GEN-LAST:event_setQortalFolderActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -811,6 +856,6 @@ public class MonitorPanel extends javax.swing.JPanel
     private javax.swing.JLabel pingLabel;
     private javax.swing.JButton pricesButton;
     private javax.swing.JButton refreshButton;
-    private javax.swing.JButton setBlockchainFolderButton;
+    private javax.swing.JButton setQortalFolder;
     // End of variables declaration//GEN-END:variables
 }

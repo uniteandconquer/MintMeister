@@ -52,6 +52,9 @@ public class PieChart
             case "Blocks per hour network":
                 dataset = createBphNetworkDataset(tableTime, mintersTable);
                 break;
+            case "Balance distribution":
+                dataset = createBalanceDistDataset(maxLevel, tableTime);
+                break;
         }
         
         if(dataset == null)
@@ -275,6 +278,63 @@ public class PieChart
             CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
 
             subtitle = "Total of " + minterCount + " minters found in level " + chartLevel;
+            subtitle += " on " + Utilities.DateFormatShort(tableTime);
+            return dataset;
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;           
+    }
+    
+    private static CategoryDataset createBalanceDistDataset(int maxLevel,long tableTime)
+    {
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {                
+            String[] tiers = new String[maxLevel];
+            for(int i = 0; i < tiers.length;i++)
+            {
+                tiers[i] = "Level " + (i + 1) + " balance";
+            }
+
+            double[][] data = new double[maxLevel][1]; //[tier][level]
+            
+            long lastEntryTime = (long) BackgroundService.GUI.dbManager.GetColumn(
+                    "levels_data", "timestamp", "timestamp", "desc", connection).get(0);
+             
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(
+                    "select level,balance from levels_data where timestamp=" + String.valueOf(lastEntryTime));       
+            
+            while(resultSet.next())
+            {
+                int rowLevel = resultSet.getInt("level");                
+                if(rowLevel > maxLevel)
+                    continue;
+                
+                Object obj = resultSet.getObject("balance");                    
+                
+                if(obj != null)
+                {
+                    data[rowLevel - 1][0] += (double)obj;
+                }
+            }
+            
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery(
+                "select total_balance,minters_count from minters_data where timestamp=" + String.valueOf(lastEntryTime));  
+            resultSet.next();
+            double totalMintersBalance = resultSet.getDouble("total_balance");
+            int minterCount = resultSet.getInt("minters_count");
+
+            String[] levels = new String[]{String.format("On %s\nTotal balance for all levels was %,.0f",
+                    Utilities.DateFormatShort(lastEntryTime),totalMintersBalance)};            
+
+            CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
+
+            subtitle = "Total of " + minterCount + " minters found in network";
             subtitle += " on " + Utilities.DateFormatShort(tableTime);
             return dataset;
         }

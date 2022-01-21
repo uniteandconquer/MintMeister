@@ -88,6 +88,8 @@ public class Utilities
     
     public static String ReadStringFromURL(String requestURL) throws TimeoutException, IOException, ConnectException
     {
+        BackgroundService.totalApiCalls++;
+        
         Future<String> result = executor.submit(() -> ReadString(requestURL));
 
         try
@@ -116,6 +118,11 @@ public class Utilities
     public static String integerFormat(int number)
     {
         return NumberFormat.getIntegerInstance().format(number);
+    }
+    
+    public static String numberFormat(int number)
+    {
+        return NumberFormat.getNumberInstance().format(number);
     }
     
     public static boolean isNavKeyEvent(KeyEvent evt)
@@ -491,18 +498,22 @@ public class Utilities
             case "blockchainsize":
             case "qortal_ram":
             case "Average blocks/hour":
-                returnString = String.format("%.2fMb", value);
+                returnString = String.format("%,.2fMb", value);
                 break;   
             case "ltc_to_qort_price":
             case "doge_to_qort_price":
             case "balance":
-                returnString = String.format("%.5f QORT", value);
+                returnString = String.format("%,.5f QORT", value);
+                break;
+            case "Total balance all minters":
+            case "Total balance minters in level":
+                returnString = String.format("%,.2f QORT", value);
                 break;
             case "qort_to_ltc_price":
-                returnString = String.format("%.5f LTC", value);
+                returnString = String.format("%,.5f LTC", value);
                 break;
             case "qort_to_doge_price":
-                returnString = String.format("%.5f Doge", value);
+                returnString = String.format("%,.5f Doge", value);
                 break;
             case "uptime":
                 returnString = String.format("%s", Utilities.MillisToDayHrMinShortFormat((long)value));
@@ -514,7 +525,7 @@ public class Utilities
                 returnString = String.format("%d Blocks per hour", (int) value);
                 break;
             case "balancedelta":
-                returnString = String.format("%.5f QORT per hour", value);
+                returnString = String.format("%,.5f QORT per hour", value);
                 break;
             case "efficiency":
             case "cpu_usage":

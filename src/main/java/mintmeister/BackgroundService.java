@@ -35,6 +35,7 @@ public class BackgroundService
     protected static final String BUILDVERSION = "MintMeister 1.0";    
     protected static boolean ISMAPPING;
     protected static SplashScreen SPLASH;
+    protected static int totalApiCalls;
     
     public BackgroundService(boolean GUI_enabled)
     {  

@@ -9,7 +9,9 @@ import java.awt.event.MouseListener;
 import java.awt.geom.Ellipse2D;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import javax.swing.JPanel;
@@ -17,16 +19,22 @@ import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartMouseEvent;
 import org.jfree.chart.ChartMouseListener;
 import org.jfree.chart.ChartPanel;
+import org.jfree.chart.ChartUtils;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.AxisLocation;
+import org.jfree.chart.axis.DateAxis;
+import org.jfree.chart.axis.DateTickMarkPosition;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.axis.NumberTickUnit;
 import org.jfree.chart.axis.SymbolAxis;
 import org.jfree.chart.axis.ValueAxis;
+import org.jfree.chart.labels.StandardXYToolTipGenerator;
 import org.jfree.chart.plot.Crosshair;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.xy.StandardXYItemRenderer;
+import org.jfree.chart.renderer.xy.XYBarRenderer;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.chart.renderer.xy.XYStepRenderer;
 import org.jfree.chart.title.TextTitle;
@@ -36,9 +44,11 @@ import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.chart.ui.RectangleAnchor;
+import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.time.Hour;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.Year;
+import org.jfree.data.xy.IntervalXYDataset;
 
 public class ChartMaker extends ApplicationFrame implements ChartMouseListener
 {
@@ -48,7 +58,7 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
     public ArrayList<TimeSeriesCollection> datasets;
     public final javax.swing.JLabel chartDialogLabel;
     protected final javax.swing.JDialog chartDialog;
-    private final Point dialogSize = new Point(220,20);  
+    private final Point dialogSize = new Point(250,20);  
     public boolean showCrosshairs = true;
     public boolean showDialog = true;
     public boolean interpolateEnabled = true;
@@ -695,6 +705,9 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         
         for(int i = sourceDataset.getItemCount(0) - 1; i >= 0; i--)
         {
+            if(sourceDataset.getY(0, i) == null)
+                continue;
+            
             time = new Second(new Date((long)sourceDataset.getX(0, i)));
             
             if(i - averagingPeriod >= 0)
@@ -749,6 +762,11 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
     
     protected JPanel createMintersLineChartPanel(String title, String levelType, ResultSet resultSet)
     {
+        if(title.equals("Level-ups bar chart"))
+        {
+            return new ChartPanel(createBarChart(createLevelUpsDataset(resultSet)));
+        }
+        
         ArrayList<ResultSet> resultSets = new ArrayList<>();
         resultSets.add(resultSet);
         ArrayList<String> axes = new ArrayList<>();
@@ -840,8 +858,8 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         }
         
         return chartPanel;
-    }
-    
+    }    
+   
      private JFreeChart createMintersChart(String title,String levelType,ArrayList<ResultSet> resultSets,ArrayList<String> axes)
     {
         datasets = new ArrayList<>();
@@ -962,7 +980,10 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
             {   
                 //using second to make sure addOrUpdate will insert if time interval is smaller than 1 minute
                 time = new Second(new Date(resultSet.getLong("timestamp")));
-                value = (Number) resultSet.getObject(column);              
+                value = (Number) resultSet.getObject(column);       
+                if(value == null)
+                    continue;
+                
                 series.addOrUpdate(time, value);
             }
             TimeSeriesCollection dataset = new TimeSeriesCollection();
@@ -978,6 +999,70 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         return null;        
     }
     
+    private static JFreeChart createBarChart(IntervalXYDataset dataset)
+    {
+        JFreeChart chart = ChartFactory.createXYBarChart(
+                "Level-ups",
+                "Time period",
+                true,
+                "Count",
+                dataset,
+                PlotOrientation.VERTICAL,
+                true,
+                false,
+                false
+        );
+
+        XYPlot plot = (XYPlot) chart.getPlot();
+        XYBarRenderer renderer = (XYBarRenderer) plot.getRenderer();
+        StandardXYToolTipGenerator generator = new StandardXYToolTipGenerator(
+                "{1} = {2}", new SimpleDateFormat("hh:mm - MMM dd, yyyy"), new DecimalFormat("0"));             
+        
+        renderer.setDefaultToolTipGenerator(generator);        
+        renderer.setMargin(0.10);
+
+        DateAxis axis = (DateAxis) plot.getDomainAxis();
+        axis.setTickMarkPosition(DateTickMarkPosition.MIDDLE);
+        axis.setLowerMargin(0.01);
+        axis.setUpperMargin(0.01);
+
+        ChartUtils.applyCurrentTheme(chart);
+
+        return chart;
+    }
     
+    private IntervalXYDataset createLevelUpsDataset(ResultSet resultSet)
+    {
+        try
+        {
+            resultSet.beforeFirst();
+            String column = resultSet.getMetaData().getColumnName(2);
+            TimeSeries series = new TimeSeries(column);
+            RegularTimePeriod time;
+            Number value;  
+            while(resultSet.next())
+            {   
+                //using second to make sure addOrUpdate will insert if time interval is smaller than 1 minute
+                time = new Second(new Date(resultSet.getLong("timestamp")));
+                value = (Number) resultSet.getObject(column);       
+                if(value == null)
+                    continue;
+                
+                series.addOrUpdate(time, value);
+            }
+            TimeSeriesCollection dataset = new TimeSeriesCollection();
+            dataset.addSeries(series);  
+            
+            return dataset;            
+
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;
+
+    }  
     
 }

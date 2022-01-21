@@ -112,12 +112,12 @@
             </Constraint>
           </Constraints>
         </Component>
-        <Component class="javax.swing.JButton" name="setBlockchainFolderButton">
+        <Component class="javax.swing.JButton" name="setQortalFolder">
           <Properties>
-            <Property name="text" type="java.lang.String" value="Set Qortal db folder"/>
+            <Property name="text" type="java.lang.String" value="Set Qortal folder"/>
           </Properties>
           <Events>
-            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="setBlockchainFolderButtonActionPerformed"/>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="setQortalFolderActionPerformed"/>
           </Events>
           <Constraints>
             <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.DesignGridBagLayout" value="org.netbeans.modules.form.compat2.layouts.DesignGridBagLayout$GridBagConstraintsDescription">

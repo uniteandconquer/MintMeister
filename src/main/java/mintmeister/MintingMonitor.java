@@ -92,7 +92,7 @@ public class MintingMonitor extends javax.swing.JPanel
         
         fillLevellingTable();
         
-        populateChartsTree();
+        createChartsTree();
         
         if(mintersTable.getRowCount() == 0)
             continueButton.setEnabled(false);
@@ -228,12 +228,12 @@ public class MintingMonitor extends javax.swing.JPanel
             if(!dbManager.TableExists("minters_data", connection))
             {
                 dbManager.CreateTable(new String[]{"minters_data","timestamp","long","minters_count","int","names_registered","int",
-                    "avg_bph","double","total_minted_network","long","level_ups","int"}, connection);  
+                    "avg_bph","double","total_minted_network","long","level_ups","int","total_balance","double"}, connection);  
             }
             if(!dbManager.TableExists("levels_data", connection))
             {
                 dbManager.CreateTable(new String[]{"levels_data","timestamp", "long","level","int","count","int",
-                    "names_registered","int","avg_bph","double","total_minted_level","long"}, connection);               
+                    "names_registered","int","avg_bph","double","total_minted_level","long","balance","double"}, connection);               
             }
             
             ArrayList<Object> durations = dbManager.GetColumn("minters", "duration", "duration", "desc", connection);
@@ -301,6 +301,8 @@ public class MintingMonitor extends javax.swing.JPanel
                     int[] levelBph = new int[10];
                     int[] levelNamesReg = new int[10];
                     int[] levelTotalMinted = new int[10];
+                    double[] balances = new double[10];
+                    double totalMintersBalance = 0;
                     
                     appendText(String.format("----------------------------------------------\n\n"
                             + "Starting iteration %d at %s\nTotal mapping time is %s\n\n", iterations,Utilities.DateFormat(currentTime),
@@ -314,7 +316,12 @@ public class MintingMonitor extends javax.swing.JPanel
                     groups = new int[8];
 
                     if(!mappingHalted)
-                        appendText("Fetching blocks minted data for all minters in list...\n\n");
+                    {
+                        if(balanceCheckbox.isSelected())
+                            appendText("Fetching blocks minted and balance data for all minters in list...\n\n");
+                        else
+                            appendText("Fetching blocks minted data for all minters in list...\n\n");
+                    }
 
                     try(Connection connection = ConnectionDB.getConnection("minters"))
                     {
@@ -350,6 +357,18 @@ public class MintingMonitor extends javax.swing.JPanel
                             jSONObject = new JSONObject(jsonString);
                             int blocksMinted = jSONObject.getInt("blocksMinted");
                             int level = jSONObject.getInt("level");
+                            double balance = 0;
+                            if(balanceCheckbox.isSelected())
+                                balance =  Double.parseDouble(Utilities.ReadStringFromURL(
+                                    "http://" + gui.dbManager.socket + "/addresses/balance/" + minter.address));  
+                            
+                            //keeping this as a double to enable decimal format in future
+                            //round to 0 decimals
+                            double scale = Math.pow(10, 0);
+                            balance = Math.round(balance * scale) / scale;
+                            balances[level - 1] += balance;
+                            totalMintersBalance += balance;
+                            
                             if(level > minter.level)
                             {
                                 levelUps++;
@@ -483,12 +502,13 @@ public class MintingMonitor extends javax.swing.JPanel
                         avgBph = Math.round(avgBph * scale) / scale;
                
                         dbManager.InsertIntoDB(new String[]{"minters_data",
-                            "timestamp",String.valueOf(System.currentTimeMillis()),
+                            "timestamp",String.valueOf(currentTime),
                             "minters_count",String.valueOf(minters.size()),
                             "avg_bph",String.valueOf(avgBph),
                             "total_minted_network",String.valueOf(totalBlocks),
                             "names_registered",String.valueOf(namesCount),
-                            "level_ups",String.valueOf(levelUps)}, connection);
+                            "level_ups",String.valueOf(levelUps),
+                            "total_balance",String.valueOf(totalMintersBalance)}, connection);
                         
                         for(int i = 0; i < levelCount.length; i++)
                         {   
@@ -497,13 +517,16 @@ public class MintingMonitor extends javax.swing.JPanel
                             avgBphLvl = Math.round(avgBphLvl * scale) / scale;
                             
                             dbManager.InsertIntoDB(new String[]{"levels_data",
-                                "timestamp",String.valueOf(System.currentTimeMillis()),
+                                "timestamp",String.valueOf(currentTime),
                                 "level",String.valueOf(i + 1),
                                 "count",String.valueOf(levelCount[i]),
                                 "avg_bph",String.valueOf(avgBphLvl),
                                 "names_registered",String.valueOf(levelNamesReg[i]),
-                                "total_minted_level",String.valueOf(levelTotalMinted[i])}, connection);                            
+                                "total_minted_level",String.valueOf(levelTotalMinted[i]),
+                                "balance",String.valueOf(balances[i])}, connection);                            
                         }                   
+                        
+                        BackgroundService.AppendLog("Total API calls made :  " + Utilities.integerFormat(BackgroundService.totalApiCalls));
                         
                         startCountDown();
                     }      
@@ -917,9 +940,10 @@ public class MintingMonitor extends javax.swing.JPanel
         stopButton.setEnabled(isMapping);
         hoursSlider.setEnabled(!isMapping);
         minutesSlider.setEnabled(!isMapping);
+        balanceCheckbox.setEnabled(!isMapping);
     }
     
-    protected void populateChartsTree()
+    protected void createChartsTree()
     {
         int maxLevel = 0;
         try(Connection connection = ConnectionDB.getConnection("minters"))
@@ -981,8 +1005,11 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode levelDistNode = 
                         new DefaultMutableTreeNode(new NodeInfo("Level distribution", "arrow-right.png"));
                 allLevelsNode.add(levelDistNode);
+                DefaultMutableTreeNode balanceDistNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("Balance distribution", "arrow-right.png"));
+                allLevelsNode.add(balanceDistNode);
                 
-                selectedNode = bphNode;
+                selectedNode = bphTotalNode;
                 
                 for(int i2 = 1; i2 <= maxLevel; i2++)
                 {                
@@ -1021,9 +1048,15 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode blocksMintedLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Total blocks minted", "arrow-right.png"));
                 allLevelsNode.add(blocksMintedLine);
+                DefaultMutableTreeNode totalBalanceLine = 
+                        new DefaultMutableTreeNode(new NodeInfo("Total balance all minters", "arrow-right.png"));
+                allLevelsNode.add(totalBalanceLine);
                 DefaultMutableTreeNode levelUpsLine = 
-                        new DefaultMutableTreeNode(new NodeInfo("Level-ups count", "arrow-right.png"));
-                allLevelsNode.add(levelUpsLine);          
+                        new DefaultMutableTreeNode(new NodeInfo("Level-ups line chart", "arrow-right.png"));
+                allLevelsNode.add(levelUpsLine);    
+                DefaultMutableTreeNode levelUpsBar = 
+                        new DefaultMutableTreeNode(new NodeInfo("Level-ups bar chart", "arrow-right.png"));
+                allLevelsNode.add(levelUpsBar);           
                 
                 for(int i2 = 1; i2 <= maxLevel; i2++)
                 {                
@@ -1043,6 +1076,9 @@ public class MintingMonitor extends javax.swing.JPanel
                     blocksMintedLine = 
                             new DefaultMutableTreeNode(new NodeInfo("Total blocks minted", "arrow-right.png"));
                     levelNode.add(blocksMintedLine);
+                    totalBalanceLine = 
+                        new DefaultMutableTreeNode(new NodeInfo("Total balance minters in level", "arrow-right.png"));
+                    levelNode.add(totalBalanceLine);
                 }
             }
         }       
@@ -1061,7 +1097,7 @@ public class MintingMonitor extends javax.swing.JPanel
     
     private void chartsTreeSelected(TreePath treePath, boolean doubleClicked)
     {
-        if(treePath == null)
+        if(treePath == null || treePath.getPath().length < 4)
             return;
         try(Connection connection = ConnectionDB.getConnection("minters"))
         {
@@ -1129,14 +1165,19 @@ public class MintingMonitor extends javax.swing.JPanel
                         return statement.executeQuery("select timestamp,total_minted_network from minters_data");
                     else
                         return statement.executeQuery("select timestamp,total_minted_level from levels_data where level=" + level);
-                case "Level-ups count":
+                case "Level-ups bar chart":
+                case "Level-ups line chart":
                     if(levelType.equals("All levels"))
                         return statement.executeQuery("select timestamp,level_ups from minters_data");
+                case "Total balance all minters":
+                    if(levelType.equals("All levels"))
+                        return statement.executeQuery("select timestamp,total_balance from minters_data");
+                case "Total balance minters in level":
+                        return statement.executeQuery("select timestamp,balance from levels_data where level=" + level);
             }
         }
-        catch(Exception e)
+        catch(SQLException e)
         {
-            e.printStackTrace();
             BackgroundService.AppendLog(e);
         }     
         
@@ -1268,6 +1309,7 @@ public class MintingMonitor extends javax.swing.JPanel
         textArea = new javax.swing.JTextArea();
         progressBar = new javax.swing.JProgressBar();
         mapperMenuScrollPane = new javax.swing.JScrollPane();
+        mapperMenuScrollPane.getVerticalScrollBar().setUnitIncrement(10);
         mapperMenuPanel = new javax.swing.JPanel();
         startButton = new javax.swing.JButton();
         scrollCheckbox = new javax.swing.JCheckBox();
@@ -1280,6 +1322,10 @@ public class MintingMonitor extends javax.swing.JPanel
         loadMintersButton = new javax.swing.JButton();
         hoursSlider = new javax.swing.JSlider();
         hoursSlider.setVisible(false);
+        balanceCheckbox = new javax.swing.JCheckBox();
+        balanceBoxLabel = new javax.swing.JLabel();
+        jSeparator1 = new javax.swing.JSeparator();
+        jSeparator2 = new javax.swing.JSeparator();
         minterListTab = new javax.swing.JSplitPane();
         minterMenuScrollPane = new javax.swing.JScrollPane();
         minterMenuScrollPane.getHorizontalScrollBar().setUnitIncrement(10);
@@ -1351,7 +1397,10 @@ public class MintingMonitor extends javax.swing.JPanel
 
         mapperMenuPanel.setMinimumSize(new java.awt.Dimension(225, 55));
         mapperMenuPanel.setOpaque(false);
-        mapperMenuPanel.setLayout(new java.awt.GridBagLayout());
+        java.awt.GridBagLayout mapperMenuPanelLayout = new java.awt.GridBagLayout();
+        mapperMenuPanelLayout.columnWidths = new int[] {0, 17, 0};
+        mapperMenuPanelLayout.rowHeights = new int[] {0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0};
+        mapperMenuPanel.setLayout(mapperMenuPanelLayout);
 
         startButton.setText("New Session");
         startButton.setMaximumSize(new java.awt.Dimension(128, 27));
@@ -1365,17 +1414,15 @@ public class MintingMonitor extends javax.swing.JPanel
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.insets = new java.awt.Insets(2, 0, 2, 0);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 6;
         mapperMenuPanel.add(startButton, gridBagConstraints);
 
         scrollCheckbox.setSelected(true);
         scrollCheckbox.setText("Auto scrolling");
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 6;
-        gridBagConstraints.insets = new java.awt.Insets(14, 0, 14, 0);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 14;
         mapperMenuPanel.add(scrollCheckbox, gridBagConstraints);
 
         minutesSlider.setMajorTickSpacing(10);
@@ -1395,17 +1442,17 @@ public class MintingMonitor extends javax.swing.JPanel
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 7;
-        gridBagConstraints.gridwidth = 2;
-        gridBagConstraints.insets = new java.awt.Insets(5, 0, 0, 0);
+        gridBagConstraints.gridy = 22;
+        gridBagConstraints.gridwidth = 3;
         mapperMenuPanel.add(minutesSlider, gridBagConstraints);
 
+        mappingDeltaLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mappingDeltaLabel.setText("Iterate once every 30 minutes");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 8;
-        gridBagConstraints.gridwidth = 2;
-        gridBagConstraints.insets = new java.awt.Insets(5, 0, 0, 0);
+        gridBagConstraints.gridy = 24;
+        gridBagConstraints.gridwidth = 3;
+        gridBagConstraints.insets = new java.awt.Insets(0, 0, 10, 0);
         mapperMenuPanel.add(mappingDeltaLabel, gridBagConstraints);
 
         saveListButton.setText("Save minters list");
@@ -1421,17 +1468,16 @@ public class MintingMonitor extends javax.swing.JPanel
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.insets = new java.awt.Insets(2, 0, 2, 0);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 8;
         mapperMenuPanel.add(saveListButton, gridBagConstraints);
 
         listInfoLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         listInfoLabel.setText("<html><div style='text-align: center;'>No minters in list</div></html>");
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridx = 2;
         gridBagConstraints.gridy = 0;
-        gridBagConstraints.insets = new java.awt.Insets(0, 0, 15, 0);
+        gridBagConstraints.insets = new java.awt.Insets(10, 0, 0, 0);
         mapperMenuPanel.add(listInfoLabel, gridBagConstraints);
 
         stopButton.setText("Stop mapping");
@@ -1447,9 +1493,8 @@ public class MintingMonitor extends javax.swing.JPanel
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 2;
-        gridBagConstraints.insets = new java.awt.Insets(2, 0, 2, 0);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 4;
         mapperMenuPanel.add(stopButton, gridBagConstraints);
 
         continueButton.setText("Continue mapping");
@@ -1464,9 +1509,8 @@ public class MintingMonitor extends javax.swing.JPanel
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.insets = new java.awt.Insets(5, 0, 2, 0);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 2;
         mapperMenuPanel.add(continueButton, gridBagConstraints);
 
         loadMintersButton.setText("Load minters list");
@@ -1480,9 +1524,8 @@ public class MintingMonitor extends javax.swing.JPanel
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.insets = new java.awt.Insets(2, 0, 0, 0);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 10;
         mapperMenuPanel.add(loadMintersButton, gridBagConstraints);
 
         hoursSlider.setMajorTickSpacing(5);
@@ -1501,9 +1544,42 @@ public class MintingMonitor extends javax.swing.JPanel
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 7;
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 22;
         mapperMenuPanel.add(hoursSlider, gridBagConstraints);
+
+        balanceCheckbox.setSelected(true);
+        balanceCheckbox.setText("Include balance in API calls");
+        balanceCheckbox.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                balanceCheckboxActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 16;
+        mapperMenuPanel.add(balanceCheckbox, gridBagConstraints);
+
+        balanceBoxLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        balanceBoxLabel.setText("2 API calls for every minter");
+        balanceBoxLabel.setToolTipText("Including balance data in the API calls will collect balance data per level which can be plotted in the charts. This will double the amount of API calls for each minter.");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 18;
+        gridBagConstraints.gridwidth = 3;
+        mapperMenuPanel.add(balanceBoxLabel, gridBagConstraints);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 12;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        mapperMenuPanel.add(jSeparator1, gridBagConstraints);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 20;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        mapperMenuPanel.add(jSeparator2, gridBagConstraints);
 
         mapperMenuScrollPane.setViewportView(mapperMenuPanel);
 
@@ -2066,8 +2142,15 @@ public class MintingMonitor extends javax.swing.JPanel
         }
     }//GEN-LAST:event_mintersPerLevelSliderStateChanged
 
+    private void balanceCheckboxActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_balanceCheckboxActionPerformed
+    {//GEN-HEADEREND:event_balanceCheckboxActionPerformed
+        balanceBoxLabel.setText(balanceCheckbox.isSelected() ? "2 API calls for every minter" : "1 API call for every minter");
+    }//GEN-LAST:event_balanceCheckboxActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JLabel balanceBoxLabel;
+    private javax.swing.JCheckBox balanceCheckbox;
     private javax.swing.JCheckBox caseCheckbox;
     private javax.swing.JPanel chartPanelPlaceHolder;
     private javax.swing.JPanel chartsMenuPanel;
@@ -2084,6 +2167,8 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JSlider hoursSlider;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JSeparator jSeparator1;
+    private javax.swing.JSeparator jSeparator2;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JPanel labelPanel;
     private javax.swing.JPanel levelUpsMenuLower;
