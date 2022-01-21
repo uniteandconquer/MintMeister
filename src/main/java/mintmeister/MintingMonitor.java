@@ -2019,7 +2019,7 @@ public class MintingMonitor extends javax.swing.JPanel
         jfc.setAcceptAllFileFilterUsed(false);
         jfc.addChoosableFileFilter(filter);
         jfc.setFileFilter(filter);
-        int returnValue = jfc.showSaveDialog(null);
+        int returnValue = jfc.showOpenDialog(null);
 
         if (returnValue == JFileChooser.APPROVE_OPTION)
         {            
