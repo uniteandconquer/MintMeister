@@ -1,6 +1,6 @@
 # MintMeister
 
-Watch the MintMeister Introduction video at: https://rumble.com/vt1fb5-mintmeister-introduction.html
+Watch the MintMeister Introduction video at: https://rumble.com/vt2h8h-mintmeister-introduction.html
 
 Welcome to MintMeister.
 
