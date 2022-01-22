@@ -941,6 +941,8 @@ public class MintingMonitor extends javax.swing.JPanel
         hoursSlider.setEnabled(!isMapping);
         minutesSlider.setEnabled(!isMapping);
         balanceCheckbox.setEnabled(!isMapping);
+        saveListButton.setEnabled(!isMapping);
+        loadMintersButton.setEnabled(!isMapping);
     }
     
     protected void createChartsTree()
