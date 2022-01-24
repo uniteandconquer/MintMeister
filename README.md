@@ -5,6 +5,8 @@ Watch the MintMeister Main Features video at: https://rumble.com/vt2hia-mintmeis
 
 Watch the MintMeister Introduction video at:  https://rumble.com/vt2h8h-mintmeister-introduction.html
 
+---
+
 Welcome to MintMeister.
 
 This program uses the Qortal API to query the blockchain on your Qortal node in order to find all known minters on the network. The app comes with a pre-mapped list of minters, but it will always scan for more unknown minters during mapping sessions.
