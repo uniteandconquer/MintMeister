@@ -536,10 +536,14 @@ public class MintingMonitor extends javax.swing.JPanel
                     textArea.setText("Could not connect to Qortal core.\n\nMake sure your core is running and/or your SHH tunnel is active\n\n"
                             + "Make sure your 'customIP' and 'customPort' values are correct in the 'MintMeister/bin/settings.json' file.\n\n"
                             + "Default IP is \"localhost\"\nDefault port is \"12391\"\n\nDeleting 'settings.json' will reset all settings to default");
+                    mappingHalted = true;
                     stopMapping();
                 }
                 catch (IOException | SQLException | TimeoutException | JSONException e)
                 {
+                    appendText("\n\n" + e.toString());
+                    mappingHalted = true;
+                    stopMapping();
                     BackgroundService.AppendLog(e);
                 }                
             }
@@ -675,10 +679,12 @@ public class MintingMonitor extends javax.swing.JPanel
             textArea.setText("Could not connect to Qortal core.\n\nMake sure your core is running and/or your SHH tunnel is active\n\n"
                     + "Make sure your 'customIP' and 'customPort' values are correct in the 'MintMeister/bin/settings.json' file.\n\n"
                     + "Default IP is \"localhost\"\nDefault port is \"12391\"\n\nDeleting 'settings.json' will reset all settings to default");
-            stopMapping();
+            mappingHalted = true;
         }
         catch (Exception e)
         {
+            textArea.append("\n\n" + e.toString());
+            mappingHalted = true;
             BackgroundService.AppendLog(e);
         }
     }
@@ -1044,6 +1050,9 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode regNamesCountLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Registered names count", "arrow-right.png"));
                 allLevelsNode.add(regNamesCountLine);
+                DefaultMutableTreeNode regNamesPercentLine = 
+                        new DefaultMutableTreeNode(new NodeInfo("Registered names percentage", "arrow-right.png"));
+                allLevelsNode.add(regNamesPercentLine);
                 DefaultMutableTreeNode avgBphLines = 
                         new DefaultMutableTreeNode(new NodeInfo("Average blocks/hour", "arrow-right.png"));
                 allLevelsNode.add(avgBphLines);
@@ -1072,6 +1081,9 @@ public class MintingMonitor extends javax.swing.JPanel
                     regNamesCountLine = 
                             new DefaultMutableTreeNode(new NodeInfo("Registered names count", "arrow-right.png"));
                     levelNode.add(regNamesCountLine);
+                    regNamesPercentLine = 
+                            new DefaultMutableTreeNode(new NodeInfo("Registered names percentage", "arrow-right.png"));
+                    levelNode.add(regNamesPercentLine);
                     avgBphLines = 
                             new DefaultMutableTreeNode(new NodeInfo("Average blocks/hour", "arrow-right.png"));
                     levelNode.add(avgBphLines);
@@ -1157,6 +1169,11 @@ public class MintingMonitor extends javax.swing.JPanel
                         return statement.executeQuery("select timestamp,names_registered from minters_data");
                     else
                         return statement.executeQuery("select timestamp,names_registered from levels_data where level=" + level);
+                case "Registered names percentage":
+                    if(levelType.equals("All levels"))
+                        return statement.executeQuery("select timestamp,names_registered,minters_count from minters_data");
+                    else
+                        return statement.executeQuery("select timestamp,names_registered,count from levels_data where level=" + level);
                 case "Average blocks/hour":
                     if(levelType.equals("All levels"))
                         return statement.executeQuery("select timestamp,avg_bph from minters_data");
@@ -1406,8 +1423,8 @@ public class MintingMonitor extends javax.swing.JPanel
 
         startButton.setText("New Session");
         startButton.setMaximumSize(new java.awt.Dimension(128, 27));
-        startButton.setMinimumSize(new java.awt.Dimension(140, 27));
-        startButton.setPreferredSize(new java.awt.Dimension(140, 27));
+        startButton.setMinimumSize(new java.awt.Dimension(150, 27));
+        startButton.setPreferredSize(new java.awt.Dimension(150, 27));
         startButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -1460,8 +1477,8 @@ public class MintingMonitor extends javax.swing.JPanel
         saveListButton.setText("Save minters list");
         saveListButton.setToolTipText("Starting a new mapping session will clear the blocks minted data from the minter list. You can load your saved lists in the charts tab and view their results.");
         saveListButton.setMaximumSize(new java.awt.Dimension(128, 27));
-        saveListButton.setMinimumSize(new java.awt.Dimension(140, 27));
-        saveListButton.setPreferredSize(new java.awt.Dimension(140, 27));
+        saveListButton.setMinimumSize(new java.awt.Dimension(150, 27));
+        saveListButton.setPreferredSize(new java.awt.Dimension(150, 27));
         saveListButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -1485,8 +1502,8 @@ public class MintingMonitor extends javax.swing.JPanel
         stopButton.setText("Stop mapping");
         stopButton.setEnabled(false);
         stopButton.setMaximumSize(new java.awt.Dimension(128, 27));
-        stopButton.setMinimumSize(new java.awt.Dimension(140, 27));
-        stopButton.setPreferredSize(new java.awt.Dimension(140, 27));
+        stopButton.setMinimumSize(new java.awt.Dimension(150, 27));
+        stopButton.setPreferredSize(new java.awt.Dimension(150, 27));
         stopButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -1501,8 +1518,8 @@ public class MintingMonitor extends javax.swing.JPanel
 
         continueButton.setText("Continue mapping");
         continueButton.setMaximumSize(new java.awt.Dimension(128, 27));
-        continueButton.setMinimumSize(new java.awt.Dimension(140, 27));
-        continueButton.setPreferredSize(new java.awt.Dimension(140, 27));
+        continueButton.setMinimumSize(new java.awt.Dimension(150, 27));
+        continueButton.setPreferredSize(new java.awt.Dimension(150, 27));
         continueButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -1516,8 +1533,8 @@ public class MintingMonitor extends javax.swing.JPanel
         mapperMenuPanel.add(continueButton, gridBagConstraints);
 
         loadMintersButton.setText("Load minters list");
-        loadMintersButton.setMinimumSize(new java.awt.Dimension(140, 27));
-        loadMintersButton.setPreferredSize(new java.awt.Dimension(140, 27));
+        loadMintersButton.setMinimumSize(new java.awt.Dimension(150, 27));
+        loadMintersButton.setPreferredSize(new java.awt.Dimension(150, 27));
         loadMintersButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)

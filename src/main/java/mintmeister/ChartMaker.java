@@ -32,7 +32,6 @@ import org.jfree.chart.labels.StandardXYToolTipGenerator;
 import org.jfree.chart.plot.Crosshair;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.xy.StandardXYItemRenderer;
 import org.jfree.chart.renderer.xy.XYBarRenderer;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
@@ -44,7 +43,6 @@ import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.chart.ui.RectangleAnchor;
-import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.time.Hour;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.Year;
@@ -862,10 +860,15 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
    
      private JFreeChart createMintersChart(String title,String levelType,ArrayList<ResultSet> resultSets,ArrayList<String> axes)
     {
-        datasets = new ArrayList<>();
+        datasets = new ArrayList<>();        
         
         //First range axis always uses first resultset
-        XYDataset dataset1 = createLineChartDataset(resultSets.get(0));
+        XYDataset dataset1;
+        
+        if(title.equals("Registered names percentage"))
+            dataset1 = createPercentageDataset(resultSets.get(0));
+        else
+            dataset1 = createLineChartDataset(resultSets.get(0));
         
         if(axes.size() > 1 && averageAll)
             dataset1 = CreateAverageDataset(dataset1);
@@ -985,6 +988,45 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
                     continue;
                 
                 series.addOrUpdate(time, value);
+            }
+            TimeSeriesCollection dataset = new TimeSeriesCollection();
+            dataset.addSeries(series);
+            datasets.add(dataset);      
+            
+            return dataset;            
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        return null;        
+    } 
+    
+    private XYDataset createPercentageDataset(ResultSet resultSet)
+    {        
+        try
+        {       
+            resultSet.beforeFirst();
+            String namesKey = resultSet.getMetaData().getColumnName(2);
+            String countKey = resultSet.getMetaData().getColumnName(3);
+            TimeSeries series = new TimeSeries(namesKey);
+            RegularTimePeriod time;
+            Number value;  
+            while(resultSet.next())
+            {   
+                //using second to make sure addOrUpdate will insert if time interval is smaller than 1 minute
+                time = new Second(new Date(resultSet.getLong("timestamp")));
+                int mintersCount = (int) resultSet.getInt(countKey);
+                value = (Number) resultSet.getObject(namesKey);       
+                if(value == null)
+                    continue;
+                
+                double percentage =  ((double) (int)value / mintersCount) * 100;
+                //round to 2 decimals
+                double scale = Math.pow(10, 2);
+                percentage = Math.round(percentage * scale) / scale;
+                
+                series.addOrUpdate(time, percentage);
             }
             TimeSeriesCollection dataset = new TimeSeriesCollection();
             dataset.addSeries(series);

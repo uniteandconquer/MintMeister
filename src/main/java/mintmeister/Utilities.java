@@ -30,7 +30,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Properties;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Vector;
@@ -480,7 +479,7 @@ public class Utilities
             case "Minters count":
             case "Registered names count":
             case "Total blocks minted":
-            case "Level-ups count":
+            case "Level-ups line chart":
                 returnString = String.format("%s", NumberFormat.getIntegerInstance().format((int) value));
                 break;
             case "moving average":
@@ -529,6 +528,7 @@ public class Utilities
                 break;
             case "efficiency":
             case "cpu_usage":
+            case "Registered names percentage":
                 returnString = String.format("%.2f%%", value);
                 break;
             case "cpu_temp":

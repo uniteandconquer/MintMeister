@@ -137,10 +137,10 @@
                           <Dimension value="[128, 27]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                       </Properties>
                       <Events>
@@ -202,10 +202,10 @@
                           <Dimension value="[128, 27]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                       </Properties>
                       <Events>
@@ -236,10 +236,10 @@
                           <Dimension value="[128, 27]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                       </Properties>
                       <Events>
@@ -258,10 +258,10 @@
                           <Dimension value="[128, 27]"/>
                         </Property>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                       </Properties>
                       <Events>
@@ -277,10 +277,10 @@
                       <Properties>
                         <Property name="text" type="java.lang.String" value="Load minters list"/>
                         <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                         <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                          <Dimension value="[140, 27]"/>
+                          <Dimension value="[150, 27]"/>
                         </Property>
                       </Properties>
                       <Events>

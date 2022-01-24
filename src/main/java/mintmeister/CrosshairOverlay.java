@@ -308,13 +308,17 @@ public class CrosshairOverlay extends AbstractOverlay implements Overlay,
                 case "Minters count":
                 case "Registered names count":
                 case "Total blocks minted":
-                case "Level-ups count":
+                case "Level-ups line chart":
                     label = isMovingAverage ? "moving average" : label;
                         dialogString += String.format("%s : %s<br/>",label, NumberFormat.getIntegerInstance().format((int) y));
                     break;                     
                 case "Average blocks/hour":
                     label = isMovingAverage ? "moving average" : label;
                         dialogString += String.format("%s : %.2f<br/>",label, y);
+                    break;
+                case "Registered names percentage":
+                    label = isMovingAverage ? "moving average" : label;
+                        dialogString += String.format("%s : %.2f%%<br/>",label, y);
                     break;
                 case "Total balance all minters":
                 case "Total balance minters in level":

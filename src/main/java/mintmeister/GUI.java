@@ -49,6 +49,9 @@ public class GUI extends javax.swing.JFrame
         setLocation(dim.width / 2 - getSize().width / 2, dim.height / 2 - getSize().height / 2);
         setVisible(true);
         BackgroundService.SPLASH.setVisible(false);
+        //calling this funtion after GUI is done intitialising, if an error occurs in minting monitor
+        //init this will ensure that the splash screen is disabled and the GUI is enabled
+        mintingMonitor.initialise(this);
     }
     
     private void InitTaskbar()
@@ -192,7 +195,6 @@ public class GUI extends javax.swing.JFrame
         exitButton = new javax.swing.JButton();
         mainPanel = new javax.swing.JPanel();
         mintingMonitor = new mintmeister.MintingMonitor();
-        mintingMonitor.initialise(this);
         splashPanel = new javax.swing.JPanel();
         statusLabel = new javax.swing.JLabel();
         nodeMonitorPanel = new mintmeister.MonitorPanel();
