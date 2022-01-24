@@ -32,9 +32,9 @@ public class GUI extends javax.swing.JFrame
         backgroundService = bgs;
         dbManager = bgs.dbManager;
         initComponents();
+        nodeMonitorPanel.CreateMonitorTree();  
         InitFrame();    
-        InitTaskbar(); 
-        nodeMonitorPanel.CreateMonitorTree();   
+        InitTaskbar();  
         System.gc();           
     }//end constructor
     
