@@ -87,6 +87,10 @@ public class MintingMonitor extends javax.swing.JPanel
         dbManager = this.gui.dbManager;
         chartMaker = new ChartMaker("", gui);
         
+        //wait for tables to be filled before allowing mapping session to start/continue
+        setUiComponentsByMapping(true);
+        stopButton.setEnabled(false);
+        
         fillMinterTable("MINTED_END","desc");
         setMinterRank();   
         
@@ -182,6 +186,10 @@ public class MintingMonitor extends javax.swing.JPanel
                 updateDataTimeLabels();
             }
         }, 0, 60000);
+        
+        
+        //wait for tables to be filled before allowing mapping session to start/continue
+        setUiComponentsByMapping(false);
         
     }//end initialise()
     
@@ -327,9 +335,9 @@ public class MintingMonitor extends javax.swing.JPanel
                     {
                         createTempTable(connection);
 
-                        int namesCount = 0;
+                        int namesCount = 0;                        
 
-                        for(int i = 0; i < minters.size();i++)
+                        for(int i = minters.size() - 1; i >= 0; i--)
                         {     
                             //just cancelling the timer will not end this loop but only the next iteration of the timer
                             if(mappingHalted)
@@ -344,7 +352,7 @@ public class MintingMonitor extends javax.swing.JPanel
 
                             currentTime = System.currentTimeMillis();
 
-                            final int current = i;
+                            final int current = minters.size() - i;
                             SwingUtilities.invokeLater(()->
                             {
                                 double percent = ((double) current / minters.size()) * 100;
@@ -357,6 +365,18 @@ public class MintingMonitor extends javax.swing.JPanel
                             jSONObject = new JSONObject(jsonString);
                             int blocksMinted = jSONObject.getInt("blocksMinted");
                             int level = jSONObject.getInt("level");
+                            
+                            //for some addresses the api returns level 0 (due to transferring level to different account?)
+                            if(level == 0)
+                            {
+                                String notification = String.format("Removing address '%s' from minters list, API returned level 0 for this address", minter.address);
+                                System.out.println(notification);
+                                BackgroundService.AppendLog(notification);
+                                addresses.remove(minter.address);
+                                minters.remove(minter);
+                                continue;
+                            }
+                            
                             double balance = 0;
                             if(balanceCheckbox.isSelected())
                                 balance =  Double.parseDouble(Utilities.ReadStringFromURL(
@@ -539,7 +559,7 @@ public class MintingMonitor extends javax.swing.JPanel
                     mappingHalted = true;
                     stopMapping();
                 }
-                catch (IOException | SQLException | TimeoutException | JSONException e)
+                catch (IOException | SQLException | TimeoutException | JSONException | ArrayIndexOutOfBoundsException e)
                 {
                     appendText("\n\n" + e.toString());
                     mappingHalted = true;
@@ -934,11 +954,13 @@ public class MintingMonitor extends javax.swing.JPanel
             catch (Exception e)
             {
                 BackgroundService.AppendLog(e);
+                stopMapping();
             }
         });     
     }
     
-    private void setUiComponentsEnabled(boolean isMapping)
+    /**If isMapping is true all components except stop button are disabled and vice versa*/
+    private void setUiComponentsByMapping(boolean isMapping)
     {    
         BackgroundService.ISMAPPING = isMapping;
         startButton.setEnabled(!isMapping);
@@ -1213,7 +1235,7 @@ public class MintingMonitor extends javax.swing.JPanel
         if(countDownTimer != null)
             countDownTimer.cancel();
         
-        setUiComponentsEnabled(false);
+        setUiComponentsByMapping(false);
         
         progressBar.setValue(0);
         progressBar.setStringPainted(false);        
@@ -1910,7 +1932,7 @@ public class MintingMonitor extends javax.swing.JPanel
             return;
         }
         
-        setUiComponentsEnabled(true);
+        setUiComponentsByMapping(true);
         
         progressBar.setStringPainted(true);       
         
@@ -2002,7 +2024,7 @@ public class MintingMonitor extends javax.swing.JPanel
 
     private void stopButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_stopButtonActionPerformed
     {//GEN-HEADEREND:event_stopButtonActionPerformed
-        setUiComponentsEnabled(false);
+        setUiComponentsByMapping(false);
         
         iterations = 0;         
         mappingHalted = true;          
@@ -2018,7 +2040,7 @@ public class MintingMonitor extends javax.swing.JPanel
             return;
         }
         
-        setUiComponentsEnabled(true);
+        setUiComponentsByMapping(true);
         
         progressBar.setStringPainted(true);
         
