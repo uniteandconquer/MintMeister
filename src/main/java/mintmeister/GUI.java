@@ -32,13 +32,24 @@ public class GUI extends javax.swing.JFrame
         backgroundService = bgs;
         dbManager = bgs.dbManager;
         initComponents();
-        nodeMonitorPanel.CreateMonitorTree();  
-        InitFrame();    
+        initMintingMonitor();
+        nodeMonitorPanel.CreateMonitorTree();
+        initFrame();    
         InitTaskbar();  
         System.gc();           
     }//end constructor
     
-    private void InitFrame()
+    /**To avoid splash frozen splash screen in case minting monitor doesn't initialize properly*/
+    private void initMintingMonitor()
+    {          
+        if(!mintingMonitor.initialise(this))
+        {
+            JOptionPane.showMessageDialog(this, "Error initializing minting monitor");
+            System.exit(1);
+        }
+    }
+    
+    private void initFrame()
     {
         //put the frame at middle of the screen,add icon and set visible
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
@@ -49,9 +60,6 @@ public class GUI extends javax.swing.JFrame
         setLocation(dim.width / 2 - getSize().width / 2, dim.height / 2 - getSize().height / 2);
         setVisible(true);
         BackgroundService.SPLASH.setVisible(false);
-        //calling this funtion after GUI is done intitialising, if an error occurs in minting monitor
-        //init this will ensure that the splash screen is disabled and the GUI is enabled
-        mintingMonitor.initialise(this);
     }
     
     private void InitTaskbar()

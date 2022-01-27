@@ -81,115 +81,118 @@ public class MintingMonitor extends javax.swing.JPanel
         chartsTreeModel = (DefaultTreeModel) chartsTree.getModel();   
     }
 
-    protected void initialise(GUI gui)
+    protected boolean initialise(GUI gui)
     {
-        this.gui = gui;
-        dbManager = this.gui.dbManager;
-        chartMaker = new ChartMaker("", gui);
-        
-        //wait for tables to be filled before allowing mapping session to start/continue
-        setUiComponentsByMapping(true);
-        stopButton.setEnabled(false);
-        
-        fillMinterTable("MINTED_END","desc");
-        setMinterRank();   
-        
-        fillLevellingTable();
-        
-        createChartsTree();
-        
-        if(mintersTable.getRowCount() == 0)
-            continueButton.setEnabled(false);
-        
-        mintersTable.getTableHeader().addMouseListener(new MouseAdapter()
+        try
         {
-            @Override
-            public void mouseClicked(MouseEvent e)
+            this.gui = gui;
+            dbManager = this.gui.dbManager;
+            chartMaker = new ChartMaker("", gui);
+
+            fillMinterTable("MINTED_END","desc");
+            setMinterRank();   
+
+            fillLevellingTable();
+
+            createChartsTree();
+
+            if(mintersTable.getRowCount() == 0)
+                continueButton.setEnabled(false);
+
+            mintersTable.getTableHeader().addMouseListener(new MouseAdapter()
             {
-                orderKey = orderKey.equals("asc") ? "desc" : "asc";  
-                int col = mintersTable.columnAtPoint(e.getPoint());
-                String headerName = mintersTable.getColumnName(col);                
-                fillMinterTable(headerName,orderKey);
-            }
-        });
-        
-        mintersTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) ->
-        {
-            if(event.getValueIsAdjusting())
-                return;
-            
-            if(mintersTable.getSelectedRow() < 0)
-                return;
-            
-            //first check if name not blank
-            String nameOrAddress = mintersTable.getValueAt(mintersTable.getSelectedRow(), 1).toString();
-            if(nameOrAddress.isBlank())
-            {
-                nameOrAddress = mintersTable.getValueAt(mintersTable.getSelectedRow(), 0).toString();
-                String start = nameOrAddress.substring(0, 4);
-                String end = nameOrAddress.substring(nameOrAddress.length() - 4, nameOrAddress.length());
-                nameOrAddress = start + "..." + end;
-            }
-            String duration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 8).toString();
-            int rank_session = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 4);
-            int rank_all_time = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 5);
-            int level = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 3);
-            int bph = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 2);
-            int minted = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 9);
-            String levelTime = mintersTable.getValueAt(mintersTable.getSelectedRow(),12).toString();
-            String levelDuration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 13).toString();
-            if(level < 10)
-            {
-                int blocksLeft = levels[level + 1] - (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 11);
-            
-                minterInfoLabel.setText(String.format("<html><div style='text-align: center;'>"
-                        + "%s : rank all time %d  |  rank session %d  |  level %d  |  %d blocks/hour  |  minted %d blocks in %s<br/>"
-                        + "%s blocks to next level  |  reaches level %d in %s, on %s (based on session blocks/hour)</div></html>",
-                        nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration,Utilities.integerFormat(blocksLeft),level + 1,levelDuration,levelTime));                
-            }
-            else
-                minterInfoLabel.setText(String.format("%s : rank all time %d  |  rank session %d  |  level %d  |"
-                        + "  %d blocks/hour  |  minted %d blocks in %s",
-                        nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration));                
-            
-        });
-        
-         //Used this listener to add double click functionality. Private class TreeSelector (under GUI class) is obsolete if we keep this method
-        MouseListener ml = new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                int selRow = chartsTree.getRowForLocation(e.getX(), e.getY());
-                TreePath selPath = chartsTree.getPathForLocation(e.getX(), e.getY());
-                if (selRow != -1)
+                @Override
+                public void mouseClicked(MouseEvent e)
                 {
-                    if (e.getClickCount() == 1)
+                    orderKey = orderKey.equals("asc") ? "desc" : "asc";  
+                    int col = mintersTable.columnAtPoint(e.getPoint());
+                    String headerName = mintersTable.getColumnName(col);                
+                    fillMinterTable(headerName,orderKey);
+                }
+            });
+
+            mintersTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) ->
+            {
+                if(event.getValueIsAdjusting())
+                    return;
+
+                if(mintersTable.getSelectedRow() < 0)
+                    return;
+
+                //first check if name not blank
+                String nameOrAddress = mintersTable.getValueAt(mintersTable.getSelectedRow(), 1).toString();
+                if(nameOrAddress.isBlank())
+                {
+                    nameOrAddress = mintersTable.getValueAt(mintersTable.getSelectedRow(), 0).toString();
+                    String start = nameOrAddress.substring(0, 4);
+                    String end = nameOrAddress.substring(nameOrAddress.length() - 4, nameOrAddress.length());
+                    nameOrAddress = start + "..." + end;
+                }
+                String duration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 8).toString();
+                int rank_session = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 4);
+                int rank_all_time = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 5);
+                int level = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 3);
+                int bph = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 2);
+                int minted = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 9);
+                String levelTime = mintersTable.getValueAt(mintersTable.getSelectedRow(),12).toString();
+                String levelDuration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 13).toString();
+                if(level < 10)
+                {
+                    int blocksLeft = levels[level + 1] - (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 11);
+
+                    minterInfoLabel.setText(String.format("<html><div style='text-align: center;'>"
+                            + "%s : rank all time %d  |  rank session %d  |  level %d  |  %d blocks/hour  |  minted %d blocks in %s<br/>"
+                            + "%s blocks to next level  |  reaches level %d in %s, on %s (based on session blocks/hour)</div></html>",
+                            nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration,Utilities.integerFormat(blocksLeft),level + 1,levelDuration,levelTime));                
+                }
+                else
+                    minterInfoLabel.setText(String.format("%s : rank all time %d  |  rank session %d  |  level %d  |"
+                            + "  %d blocks/hour  |  minted %d blocks in %s",
+                            nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration));                
+
+            });
+
+             //Used this listener to add double click functionality. Private class TreeSelector (under GUI class) is obsolete if we keep this method
+            MouseListener ml = new MouseAdapter()
+            {
+                @Override
+                public void mousePressed(MouseEvent e)
+                {
+                    int selRow = chartsTree.getRowForLocation(e.getX(), e.getY());
+                    TreePath selPath = chartsTree.getPathForLocation(e.getX(), e.getY());
+                    if (selRow != -1)
                     {
-                        chartsTreeSelected(selPath, false);
-                    }
-                    else if (e.getClickCount() == 2)
-                    {
-                        chartsTreeSelected(selPath, true);
+                        if (e.getClickCount() == 1)
+                        {
+                            chartsTreeSelected(selPath, false);
+                        }
+                        else if (e.getClickCount() == 2)
+                        {
+                            chartsTreeSelected(selPath, true);
+                        }
                     }
                 }
-            }
-        };
-        chartsTree.addMouseListener(ml);
-        
-        updateTimer = new Timer();
-        updateTimer.scheduleAtFixedRate(new TimerTask()
-        {
-            @Override
-            public void run()
+            };
+            chartsTree.addMouseListener(ml);
+
+            updateTimer = new Timer();
+            updateTimer.scheduleAtFixedRate(new TimerTask()
             {
-                updateDataTimeLabels();
-            }
-        }, 0, 60000);
-        
-        
-        //wait for tables to be filled before allowing mapping session to start/continue
-        setUiComponentsByMapping(false);
+                @Override
+                public void run()
+                {
+                    updateDataTimeLabels();
+                }
+            }, 0, 60000);
+            
+            return true;
+
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+            return false;
+        }            
         
     }//end initialise()
     

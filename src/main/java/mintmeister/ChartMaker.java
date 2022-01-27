@@ -987,6 +987,9 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
                 if(value == null)
                     continue;
                 
+                if(column.equals("LEVEL_UPS") && (int)value == 0)
+                    continue;
+                
                 series.addOrUpdate(time, value);
             }
             TimeSeriesCollection dataset = new TimeSeriesCollection();
