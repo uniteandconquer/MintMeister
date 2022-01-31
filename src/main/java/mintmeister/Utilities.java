@@ -477,9 +477,10 @@ public class Utilities
             case "level":
             case "levelling":
             case "Minters count":
-            case "Registered names count":
+            case "Registered names count (minters)":
             case "Total blocks minted":
             case "Level-ups line chart":
+            case "All registered names":
                 returnString = String.format("%s", NumberFormat.getIntegerInstance().format((int) value));
                 break;
             case "moving average":
@@ -528,7 +529,7 @@ public class Utilities
                 break;
             case "efficiency":
             case "cpu_usage":
-            case "Registered names percentage":
+            case "Registered names percentage (minters)":
                 returnString = String.format("%.2f%%", value);
                 break;
             case "cpu_temp":

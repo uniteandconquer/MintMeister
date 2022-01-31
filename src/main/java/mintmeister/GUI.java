@@ -79,17 +79,6 @@ public class GUI extends javax.swing.JFrame
             appearanceMenu.add(radioButtonMenuItem);
         }
     }
-     
-     
-    protected void ShowLoadScreen()
-    {      
-        //setting the label to visible will make the logo jump up. Label start text is 3 line breaks.
-        statusLabel.setText(Utilities.AllignCenterHTML(Main.BUNDLE.getString("loginSuccess")));
-        CardLayout card = (CardLayout) mainPanel.getLayout();
-        card.show(mainPanel, "splashPanel");
-    }
-    
-    
     
     protected void ExpandTree(JTree tree, int nodeLevel)
     {
@@ -197,14 +186,15 @@ public class GUI extends javax.swing.JFrame
         popUpLabel = new javax.swing.JLabel();
         mainToolbar = new javax.swing.JToolBar();
         mintingMonitorButton = new javax.swing.JButton();
+        namesButton = new javax.swing.JButton();
         nodeMonitorButton = new javax.swing.JButton();
         appearanceButton = new javax.swing.JButton();
         donateButton = new javax.swing.JButton();
         exitButton = new javax.swing.JButton();
         mainPanel = new javax.swing.JPanel();
         mintingMonitor = new mintmeister.MintingMonitor();
-        splashPanel = new javax.swing.JPanel();
-        statusLabel = new javax.swing.JLabel();
+        namesPanel = new mintmeister.NamesPanel();
+        namesPanel.initialise(this);
         nodeMonitorPanel = new mintmeister.MonitorPanel();
         nodeMonitorPanel.Initialise(this);
         tipJarScrollPane = new javax.swing.JScrollPane();
@@ -290,6 +280,20 @@ public class GUI extends javax.swing.JFrame
         });
         mainToolbar.add(mintingMonitorButton);
 
+        namesButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/names.png"))); // NOI18N
+        namesButton.setText("Names");
+        namesButton.setFocusable(false);
+        namesButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        namesButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        namesButton.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                namesButtonActionPerformed(evt);
+            }
+        });
+        mainToolbar.add(namesButton);
+
         nodeMonitorButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/monitor.png"))); // NOI18N
         nodeMonitorButton.setText(bundle.getString("nodeMonitorButton")); // NOI18N
         nodeMonitorButton.setToolTipText("Current info on you node's status");
@@ -359,19 +363,7 @@ public class GUI extends javax.swing.JFrame
 
             mainPanel.setLayout(new java.awt.CardLayout());
             mainPanel.add(mintingMonitor, "mintingMonitor");
-
-            splashPanel.setBackground(new java.awt.Color(51, 51, 51));
-            splashPanel.setLayout(new java.awt.GridBagLayout());
-
-            statusLabel.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-            statusLabel.setForeground(new java.awt.Color(166, 166, 166));
-            statusLabel.setText("<html><div style='text-align: center;'<br/><br/><br/></div><html>");
-            gridBagConstraints = new java.awt.GridBagConstraints();
-            gridBagConstraints.gridx = 0;
-            gridBagConstraints.gridy = 1;
-            splashPanel.add(statusLabel, gridBagConstraints);
-
-            mainPanel.add(splashPanel, "splashPanel");
+            mainPanel.add(namesPanel, "namesPanel");
             mainPanel.add(nodeMonitorPanel, "monitorPanel");
 
             tipJarPanel.setLayout(new java.awt.GridBagLayout());
@@ -629,6 +621,19 @@ public class GUI extends javax.swing.JFrame
         pasteToLabel("Bitcoin");
     }//GEN-LAST:event_btcFieldMouseReleased
 
+    private void namesButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_namesButtonActionPerformed
+    {//GEN-HEADEREND:event_namesButtonActionPerformed
+         CardLayout card = (CardLayout) mainPanel.getLayout();
+        currentCard = "namesPanel";
+        card.show(mainPanel, currentCard);
+        if (nodeMonitorPanel.timer != null)
+            nodeMonitorPanel.timer.cancel();  
+        
+        clipboardLabel.setText("Click on an address to copy it to your clipboard");         
+        //on slow systems, the dialog may not have been triggered to invisible on leaving the chart
+        mintingMonitor.chartMaker.chartDialog.setVisible(false);
+    }//GEN-LAST:event_namesButtonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton appearanceButton;
@@ -652,12 +657,12 @@ public class GUI extends javax.swing.JFrame
     protected javax.swing.JToolBar mainToolbar;
     private mintmeister.MintingMonitor mintingMonitor;
     private javax.swing.JButton mintingMonitorButton;
+    private javax.swing.JButton namesButton;
+    private mintmeister.NamesPanel namesPanel;
     private javax.swing.JButton nodeMonitorButton;
     protected mintmeister.MonitorPanel nodeMonitorPanel;
     private javax.swing.JLabel popUpLabel;
     private javax.swing.JTextField qortField;
-    private javax.swing.JPanel splashPanel;
-    protected javax.swing.JLabel statusLabel;
     private javax.swing.JPanel tipJarPanel;
     private javax.swing.JScrollPane tipJarScrollPane;
     public javax.swing.JDialog trayPopup;

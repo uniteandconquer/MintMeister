@@ -306,9 +306,10 @@ public class CrosshairOverlay extends AbstractOverlay implements Overlay,
                                 NumberFormat.getIntegerInstance().format((int) y));
                         break;                        
                 case "Minters count":
-                case "Registered names count":
+                case "Registered names count (minters)":
                 case "Total blocks minted":
                 case "Level-ups line chart":
+                case "All registered names":
                     label = isMovingAverage ? "moving average" : label;
                         dialogString += String.format("%s : %s<br/>",label, NumberFormat.getIntegerInstance().format((int) y));
                     break;                     
@@ -316,7 +317,7 @@ public class CrosshairOverlay extends AbstractOverlay implements Overlay,
                     label = isMovingAverage ? "moving average" : label;
                         dialogString += String.format("%s : %.2f<br/>",label, y);
                     break;
-                case "Registered names percentage":
+                case "Registered names percentage (minters)":
                     label = isMovingAverage ? "moving average" : label;
                         dialogString += String.format("%s : %.2f%%<br/>",label, y);
                     break;

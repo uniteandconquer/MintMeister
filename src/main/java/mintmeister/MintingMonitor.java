@@ -8,6 +8,8 @@ import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,6 +21,7 @@ import java.util.TimerTask;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import javax.swing.DefaultListSelectionModel;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -39,7 +42,6 @@ import org.json.JSONObject;
 
 public class MintingMonitor extends javax.swing.JPanel
 {
-
     private Timer timer;
     private Timer countDownTimer;
     private Timer updateTimer;
@@ -59,6 +61,7 @@ public class MintingMonitor extends javax.swing.JPanel
     private String orderKey = "desc";
     private long nextIteration;
     protected boolean mappingHalted;
+    private boolean nameUpdateHalted;
     protected boolean exitInitiated;
     private int populateTick;
     protected ChartMaker chartMaker;
@@ -109,8 +112,8 @@ public class MintingMonitor extends javax.swing.JPanel
                     String headerName = mintersTable.getColumnName(col);                
                     fillMinterTable(headerName,orderKey);
                 }
-            });
-
+            });   
+            
             mintersTable.getSelectionModel().addListSelectionListener((ListSelectionEvent event) ->
             {
                 if(event.getValueIsAdjusting())
@@ -150,7 +153,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             + "  %d blocks/hour  |  minted %d blocks in %s",
                             nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration));                
 
-            });
+            });  
 
              //Used this listener to add double click functionality. Private class TreeSelector (under GUI class) is obsolete if we keep this method
             MouseListener ml = new MouseAdapter()
@@ -245,7 +248,7 @@ public class MintingMonitor extends javax.swing.JPanel
             {
                 dbManager.CreateTable(new String[]{"levels_data","timestamp", "long","level","int","count","int",
                     "names_registered","int","avg_bph","double","total_minted_level","long","balance","double"}, connection);               
-            }
+            }  
             
             ArrayList<Object> durations = dbManager.GetColumn("minters", "duration", "duration", "desc", connection);
             
@@ -547,7 +550,7 @@ public class MintingMonitor extends javax.swing.JPanel
                                 "names_registered",String.valueOf(levelNamesReg[i]),
                                 "total_minted_level",String.valueOf(levelTotalMinted[i]),
                                 "balance",String.valueOf(balances[i])}, connection);                            
-                        }                   
+                        }  
                         
                         BackgroundService.AppendLog("Total API calls made :  " + Utilities.integerFormat(BackgroundService.totalApiCalls));
                         
@@ -968,7 +971,7 @@ public class MintingMonitor extends javax.swing.JPanel
         BackgroundService.ISMAPPING = isMapping;
         startButton.setEnabled(!isMapping);
         continueButton.setEnabled(!isMapping);
-        stopButton.setEnabled(isMapping);
+        stopMappingButton.setEnabled(isMapping);
         hoursSlider.setEnabled(!isMapping);
         minutesSlider.setEnabled(!isMapping);
         balanceCheckbox.setEnabled(!isMapping);
@@ -1072,11 +1075,14 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode mintersCountLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Minters count", "arrow-right.png"));
                 allLevelsNode.add(mintersCountLine);
+                DefaultMutableTreeNode allRegNamesNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("All registered names", "arrow-right.png"));
+                allLevelsNode.add(allRegNamesNode);
                 DefaultMutableTreeNode regNamesCountLine = 
-                        new DefaultMutableTreeNode(new NodeInfo("Registered names count", "arrow-right.png"));
+                        new DefaultMutableTreeNode(new NodeInfo("Registered names count (minters)", "arrow-right.png"));
                 allLevelsNode.add(regNamesCountLine);
                 DefaultMutableTreeNode regNamesPercentLine = 
-                        new DefaultMutableTreeNode(new NodeInfo("Registered names percentage", "arrow-right.png"));
+                        new DefaultMutableTreeNode(new NodeInfo("Registered names percentage (minters)", "arrow-right.png"));
                 allLevelsNode.add(regNamesPercentLine);
                 DefaultMutableTreeNode avgBphLines = 
                         new DefaultMutableTreeNode(new NodeInfo("Average blocks/hour", "arrow-right.png"));
@@ -1104,11 +1110,11 @@ public class MintingMonitor extends javax.swing.JPanel
                         new DefaultMutableTreeNode(new NodeInfo("Minters count", "arrow-right.png"));
                     levelNode.add(mintersCountLine);
                     regNamesCountLine = 
-                            new DefaultMutableTreeNode(new NodeInfo("Registered names count", "arrow-right.png"));
+                            new DefaultMutableTreeNode(new NodeInfo("Registered names count (minters)", "arrow-right.png"));
                     levelNode.add(regNamesCountLine);
-                    regNamesPercentLine = 
-                            new DefaultMutableTreeNode(new NodeInfo("Registered names percentage", "arrow-right.png"));
-                    levelNode.add(regNamesPercentLine);
+                    allRegNamesNode = 
+                            new DefaultMutableTreeNode(new NodeInfo("Registered names percentage (minters)", "arrow-right.png"));
+                    levelNode.add(allRegNamesNode);
                     avgBphLines = 
                             new DefaultMutableTreeNode(new NodeInfo("Average blocks/hour", "arrow-right.png"));
                     levelNode.add(avgBphLines);
@@ -1189,12 +1195,14 @@ public class MintingMonitor extends javax.swing.JPanel
                         return statement.executeQuery("select timestamp,minters_count from minters_data");
                     else
                         return statement.executeQuery("select timestamp,count from levels_data where level=" + level);
-                case "Registered names count":
+                case "All registered names":
+                        return statement.executeQuery("select timestamp from names order by timestamp asc");
+                case "Registered names count (minters)":
                     if(levelType.equals("All levels"))
                         return statement.executeQuery("select timestamp,names_registered from minters_data");
                     else
                         return statement.executeQuery("select timestamp,names_registered from levels_data where level=" + level);
-                case "Registered names percentage":
+                case "Registered names percentage (minters)":
                     if(levelType.equals("All levels"))
                         return statement.executeQuery("select timestamp,names_registered,minters_count from minters_data");
                     else
@@ -1316,7 +1324,7 @@ public class MintingMonitor extends javax.swing.JPanel
         mintersTable.setRowSelectionInterval(rowIndex, rowIndex);
         
         //scroll as close to middle as possible
-        JViewport viewport = mintersListTab.getViewport();
+        JViewport viewport = mintersTableScrollpane.getViewport();
         Dimension extentSize = viewport.getExtentSize();   
         int visibleRows = extentSize.height/mintersTable.getRowHeight();
         
@@ -1361,7 +1369,7 @@ public class MintingMonitor extends javax.swing.JPanel
         mappingDeltaLabel = new javax.swing.JLabel();
         saveListButton = new javax.swing.JButton();
         listInfoLabel = new javax.swing.JLabel();
-        stopButton = new javax.swing.JButton();
+        stopMappingButton = new javax.swing.JButton();
         continueButton = new javax.swing.JButton();
         loadMintersButton = new javax.swing.JButton();
         hoursSlider = new javax.swing.JSlider();
@@ -1383,7 +1391,7 @@ public class MintingMonitor extends javax.swing.JPanel
         labelPanel = new javax.swing.JPanel();
         minterInfoLabel = new javax.swing.JLabel();
         dataTimeLabel1 = new javax.swing.JLabel();
-        mintersListTab = new javax.swing.JScrollPane();
+        mintersTableScrollpane = new javax.swing.JScrollPane();
         mintersTable = new javax.swing.JTable();
         chartsTab = new javax.swing.JSplitPane();
         chartPanelPlaceHolder = new javax.swing.JPanel();
@@ -1524,22 +1532,22 @@ public class MintingMonitor extends javax.swing.JPanel
         gridBagConstraints.insets = new java.awt.Insets(10, 0, 0, 0);
         mapperMenuPanel.add(listInfoLabel, gridBagConstraints);
 
-        stopButton.setText("Stop mapping");
-        stopButton.setEnabled(false);
-        stopButton.setMaximumSize(new java.awt.Dimension(128, 27));
-        stopButton.setMinimumSize(new java.awt.Dimension(150, 27));
-        stopButton.setPreferredSize(new java.awt.Dimension(150, 27));
-        stopButton.addActionListener(new java.awt.event.ActionListener()
+        stopMappingButton.setText("Stop mapping");
+        stopMappingButton.setEnabled(false);
+        stopMappingButton.setMaximumSize(new java.awt.Dimension(128, 27));
+        stopMappingButton.setMinimumSize(new java.awt.Dimension(150, 27));
+        stopMappingButton.setPreferredSize(new java.awt.Dimension(150, 27));
+        stopMappingButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
             {
-                stopButtonActionPerformed(evt);
+                stopMappingButtonActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 2;
         gridBagConstraints.gridy = 4;
-        mapperMenuPanel.add(stopButton, gridBagConstraints);
+        mapperMenuPanel.add(stopMappingButton, gridBagConstraints);
 
         continueButton.setText("Continue mapping");
         continueButton.setMaximumSize(new java.awt.Dimension(128, 27));
@@ -1741,9 +1749,9 @@ public class MintingMonitor extends javax.swing.JPanel
         minterListTab.setTopComponent(minterMenuScrollPane);
 
         mintersTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-        mintersListTab.setViewportView(mintersTable);
+        mintersTableScrollpane.setViewportView(mintersTable);
 
-        minterListTab.setRightComponent(mintersListTab);
+        minterListTab.setRightComponent(mintersTableScrollpane);
 
         jTabbedPane1.addTab("Minters List  ", new javax.swing.ImageIcon(getClass().getResource("/Images/account.png")), minterListTab); // NOI18N
 
@@ -1753,11 +1761,11 @@ public class MintingMonitor extends javax.swing.JPanel
         chartPanelPlaceHolder.setLayout(chartPanelPlaceHolderLayout);
         chartPanelPlaceHolderLayout.setHorizontalGroup(
             chartPanelPlaceHolderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 324, Short.MAX_VALUE)
+            .addGap(0, 460, Short.MAX_VALUE)
         );
         chartPanelPlaceHolderLayout.setVerticalGroup(
             chartPanelPlaceHolderLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 520, Short.MAX_VALUE)
+            .addGap(0, 553, Short.MAX_VALUE)
         );
 
         chartsTab.setRightComponent(chartPanelPlaceHolder);
@@ -1915,11 +1923,11 @@ public class MintingMonitor extends javax.swing.JPanel
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING)
+            .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 715, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 553, Short.MAX_VALUE)
+            .addComponent(jTabbedPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 586, Short.MAX_VALUE)
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -2025,15 +2033,15 @@ public class MintingMonitor extends javax.swing.JPanel
         searchInput.selectAll();
     }//GEN-LAST:event_searchInputFocusGained
 
-    private void stopButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_stopButtonActionPerformed
-    {//GEN-HEADEREND:event_stopButtonActionPerformed
+    private void stopMappingButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_stopMappingButtonActionPerformed
+    {//GEN-HEADEREND:event_stopMappingButtonActionPerformed
         setUiComponentsByMapping(false);
         
         iterations = 0;         
         mappingHalted = true;          
         appendText("Mapping was ended by user at " + Utilities.DateFormat(System.currentTimeMillis()) + "\n\n");
         progressBar.setStringPainted(false);
-    }//GEN-LAST:event_stopButtonActionPerformed
+    }//GEN-LAST:event_stopMappingButtonActionPerformed
 
     private void continueButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_continueButtonActionPerformed
     {//GEN-HEADEREND:event_continueButtonActionPerformed
@@ -2233,10 +2241,10 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JSplitPane minterMappingTab;
     private javax.swing.JPanel minterMenuPanel;
     private javax.swing.JScrollPane minterMenuScrollPane;
-    private javax.swing.JScrollPane mintersListTab;
     private javax.swing.JLabel mintersPerLevelLabel;
     private javax.swing.JSlider mintersPerLevelSlider;
     private javax.swing.JTable mintersTable;
+    private javax.swing.JScrollPane mintersTableScrollpane;
     private javax.swing.JSlider minutesSlider;
     private javax.swing.JProgressBar progressBar;
     private javax.swing.JButton saveListButton;
@@ -2244,7 +2252,7 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JButton searchButton;
     private javax.swing.JTextField searchInput;
     private javax.swing.JButton startButton;
-    private javax.swing.JButton stopButton;
+    private javax.swing.JButton stopMappingButton;
     private javax.swing.JTextArea textArea;
     private javax.swing.JScrollPane textAreaScrollPane;
     private javax.swing.JPanel textPanel;

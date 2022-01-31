@@ -43,8 +43,10 @@ import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.chart.ui.RectangleAnchor;
+import org.jfree.data.time.Day;
 import org.jfree.data.time.Hour;
 import org.jfree.data.time.Second;
+import org.jfree.data.time.Week;
 import org.jfree.data.time.Year;
 import org.jfree.data.xy.IntervalXYDataset;
 
@@ -56,7 +58,7 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
     public ArrayList<TimeSeriesCollection> datasets;
     public final javax.swing.JLabel chartDialogLabel;
     protected final javax.swing.JDialog chartDialog;
-    private final Point dialogSize = new Point(250,20);  
+    private final Point dialogSize = new Point(270,20);  
     public boolean showCrosshairs = true;
     public boolean showDialog = true;
     public boolean interpolateEnabled = true;
@@ -865,8 +867,10 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         //First range axis always uses first resultset
         XYDataset dataset1;
         
-        if(title.equals("Registered names percentage"))
+        if(title.equals("Registered names percentage (minters)"))
             dataset1 = createPercentageDataset(resultSets.get(0));
+        else if(title.equals("All registered names"))
+            dataset1 = createAllNamesDataset(resultSets.get(0));
         else
             dataset1 = createLineChartDataset(resultSets.get(0));
         
@@ -1031,6 +1035,46 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
                 
                 series.addOrUpdate(time, percentage);
             }
+            TimeSeriesCollection dataset = new TimeSeriesCollection();
+            dataset.addSeries(series);
+            datasets.add(dataset);      
+            
+            return dataset;            
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        return null;        
+    }
+    
+    private XYDataset createAllNamesDataset(ResultSet resultSet)
+    {
+         try
+        {       
+            resultSet.beforeFirst();
+            resultSet.next();
+            TimeSeries series = new TimeSeries("All registered names");
+            RegularTimePeriod lastWeek = new Week(new Date(resultSet.getLong("timestamp")));
+            RegularTimePeriod currentWeek = lastWeek;
+            series.addOrUpdate(lastWeek, 0);
+            int totalNamesRegistered = 1;
+            
+            while(resultSet.next())
+            {   
+                totalNamesRegistered++;
+                currentWeek = new Week(new Date(resultSet.getLong("timestamp")));
+                
+                if(lastWeek.equals(currentWeek))
+                    continue;
+                
+                series.addOrUpdate(currentWeek, totalNamesRegistered);
+                lastWeek = currentWeek;
+            }
+            
+            //last week could have been skipped in while loop
+            series.addOrUpdate(currentWeek, totalNamesRegistered);
+            
             TimeSeriesCollection dataset = new TimeSeriesCollection();
             dataset.addSeries(series);
             datasets.add(dataset);      
