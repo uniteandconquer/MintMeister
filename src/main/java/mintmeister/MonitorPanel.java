@@ -39,7 +39,6 @@ public class MonitorPanel extends javax.swing.JPanel
     private long lastOnlineTime;
     private long lastPingTime;
     private final SystemInfo systemInfo;
-    private CentralProcessor processor;
     private final List<NetworkIF> interfaces; 
     private long totalBytesSent = 0;
     private long totalBytesReceived = 0;   
@@ -66,7 +65,6 @@ public class MonitorPanel extends javax.swing.JPanel
         initComponents();
         
         systemInfo = new SystemInfo();
-        processor = systemInfo.getHardware().getProcessor();
         interfaces = systemInfo.getHardware().getNetworkIFs();
 
         for (NetworkIF nif : interfaces)

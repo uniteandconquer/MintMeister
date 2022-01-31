@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.util.ArrayList;
 import javax.swing.DefaultListSelectionModel;
-import javax.swing.JTable;
 import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;

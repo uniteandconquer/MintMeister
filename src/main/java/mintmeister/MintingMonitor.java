@@ -8,8 +8,6 @@ import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.ConnectException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,7 +19,6 @@ import java.util.TimerTask;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
-import javax.swing.DefaultListSelectionModel;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -1956,11 +1953,11 @@ public class MintingMonitor extends javax.swing.JPanel
     private void saveListButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_saveListButtonActionPerformed
     {//GEN-HEADEREND:event_saveListButtonActionPerformed
         JFileChooser jfc = new JFileChooser(System.getProperty("user.dir") + "/minters");
-        long startTime = 0;
+        long firstEntryTime = 0;
         
         try(Connection connection = ConnectionDB.getConnection("minters"))
         {
-            startTime = (long)dbManager.GetColumn("minters", "timestamp_start", "timestamp_start", "asc", connection).get(0);            
+            firstEntryTime = (long)dbManager.GetColumn("minters", "timestamp_start", "timestamp_start", "asc", connection).get(0);            
         }
         catch (Exception e)
         {
@@ -1969,10 +1966,10 @@ public class MintingMonitor extends javax.swing.JPanel
         
         FileNameExtensionFilter filter = new FileNameExtensionFilter("database files (*.mv.db)", "db");
         //show preferred filename in filechooser
-        if(startTime == 0)
+        if(firstEntryTime == 0)
             jfc.setSelectedFile(new File("minters " + Utilities.DateFormatFile(System.currentTimeMillis()) + ".mv.db")); 
         else
-            jfc.setSelectedFile(new File("minters " + Utilities.DateFormatFile(startTime) + " till " + 
+            jfc.setSelectedFile(new File("minters " + Utilities.DateFormatFile(firstEntryTime) + " till " + 
                     Utilities.DateFormatFile(System.currentTimeMillis()) + ".mv.db")); 
             
         // add filters

@@ -867,12 +867,18 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         //First range axis always uses first resultset
         XYDataset dataset1;
         
-        if(title.equals("Registered names percentage (minters)"))
-            dataset1 = createPercentageDataset(resultSets.get(0));
-        else if(title.equals("All registered names"))
-            dataset1 = createAllNamesDataset(resultSets.get(0));
-        else
-            dataset1 = createLineChartDataset(resultSets.get(0));
+        switch (title)
+        {
+            case "Registered names percentage (minters)":
+                dataset1 = createPercentageDataset(resultSets.get(0));
+                break;
+            case "All registered names":
+                dataset1 = createAllNamesDataset(resultSets.get(0));
+                break;
+            default:
+                dataset1 = createLineChartDataset(resultSets.get(0));
+                break;
+        }
         
         if(axes.size() > 1 && averageAll)
             dataset1 = CreateAverageDataset(dataset1);
