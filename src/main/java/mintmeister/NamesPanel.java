@@ -8,6 +8,7 @@ import java.net.ConnectException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.JViewport;
@@ -119,6 +120,19 @@ public class NamesPanel extends javax.swing.JPanel
     {
         this.gui = gui;
         dbManager = gui.dbManager;
+        
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {
+            if(!dbManager.TableExists("names", connection))
+            {
+                dbManager.CreateTable(new String[]{"names","timestamp","long","name","varchar(250)",
+                    "address","varchar(100)", "benefactor","varchar(100)"}, connection);  
+            }
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }      
         fillNamesTable("TIMESTAMP", "ASC");
     }
     
@@ -136,7 +150,6 @@ public class NamesPanel extends javax.swing.JPanel
             
             jsonString = Utilities.ReadStringFromURL("http://" + gui.dbManager.socket + "/names?limit=0");
             jSONArray = new JSONArray(jsonString);
-            System.err.println("Found " + jSONArray.length() + " registered names\n");
             
             namesProgressBar.setStringPainted(true);
             
@@ -253,7 +266,7 @@ public class NamesPanel extends javax.swing.JPanel
          if(searchInput.getText().isBlank())
             return;
          
-        String address = searchInput.getText();
+        String searchTerm = searchInput.getText();
         int rowIndex = -1;
         
         //first search for name
@@ -262,15 +275,21 @@ public class NamesPanel extends javax.swing.JPanel
             String rowEntry = namesTable.getValueAt(i, 1).toString();
             if(caseCheckbox.isSelected())
             {
-                if(rowEntry.contains(address))
+                if(rowEntry.contains(searchTerm))
+                    rowIndex = i;
+                //make sure exact name has preference over name containing term
+                if(rowEntry.equals(searchTerm))
                 {
                     rowIndex = i;
                     break;
                 }
             }
             else
-            {                
-                if(rowEntry.toLowerCase().contains(address.toLowerCase()))
+            {               
+                if(rowEntry.toLowerCase().contains(searchTerm.toLowerCase()))
+                    rowIndex = i;
+                //make sure exact name has preference over name containing term
+                if(rowEntry.toLowerCase().equals(searchTerm.toLowerCase()))
                 {
                     rowIndex = i;
                     break;
@@ -286,7 +305,7 @@ public class NamesPanel extends javax.swing.JPanel
                 
                 if(caseCheckbox.isSelected())
                 {
-                    if(rowEntry.contains(address))
+                    if(rowEntry.contains(searchTerm))
                     {
                         rowIndex = i;
                         break;
@@ -294,7 +313,7 @@ public class NamesPanel extends javax.swing.JPanel
                 }
                 else
                 {                
-                    if(rowEntry.toLowerCase().contains(address.toLowerCase()))
+                    if(rowEntry.toLowerCase().contains(searchTerm.toLowerCase()))
                     {
                         rowIndex = i;
                         break;
@@ -306,10 +325,12 @@ public class NamesPanel extends javax.swing.JPanel
         if(rowIndex == -1)
         {
             namesStatusLabel.setText("Name or address containing '" + searchInput.getText() + "' not found");
+            selectedNameLabel.setText("No name selected");
             namesTable.clearSelection();
             return;
         }
         
+        namesStatusLabel.setText("Total registered names found: " + namesTable.getRowCount());
         namesTable.setRowSelectionInterval(rowIndex, rowIndex);
         
         //scroll as close to middle as possible

@@ -77,7 +77,7 @@ public class PieChart
         String[] levels = levelCount == 1 ? new String[]{"Level " + chartLevel} : new String[levelCount];
         if(levelCount > 1)
             for(int i = 0; i < levelCount;i++)
-                levels[i] = "Level " + (i+1);
+                levels[i] = "Level " + i;
         
         double[][] data = new double[7][levelCount]; //[tier][level]
         int minterCount = 0;
@@ -91,7 +91,6 @@ public class PieChart
             
             minterCount++;        
             
-            int level = rowLevel - 1;
             int bph = (int) mintersTable.getValueAt(i, 2);  
             int mintedSession = (int) mintersTable.getValueAt(i, 9);  
             
@@ -100,7 +99,7 @@ public class PieChart
                 if(levelCount == 1)
                     data[0][0]++;
                 else
-                    data[0][level]++;
+                    data[0][rowLevel]++;
             }
             
             if(bph > 0 && bph < 61)
@@ -115,7 +114,7 @@ public class PieChart
                 if(levelCount == 1)
                     data[tier][0]++;
                 else
-                    data[tier][level]++;
+                    data[tier][rowLevel]++;
             }  
         }
         
@@ -154,13 +153,13 @@ public class PieChart
     {        
         String[] levels = new String[maxLevel];
         for(int i = 0; i < maxLevel;i++)
-            levels[i] = "Level " + (i+1);
+            levels[i] = "Level " + i;
         
-        double[][] data = new double[6][1]; //[tier][level]
+        double[][] data = new double[maxLevel][1]; //[tier][level]
         
         for(int i = 0; i < mintersTable.getRowCount();i++)
         {    
-            int level = (int) mintersTable.getValueAt(i, 3) - 1; 
+            int level = (int) mintersTable.getValueAt(i, 3); 
             data[level][0]++;           
         }
         
@@ -185,7 +184,7 @@ public class PieChart
         String[] levels = levelCount == 1 ? new String[]{"Level " + chartLevel} : new String[levelCount];
         if(levelCount > 1)
             for(int i = 0; i < levelCount;i++)
-                levels[i] = "Level " + (i+1);
+                levels[i] = "Level " + i;
         
         double[][] data = new double[2][levelCount]; //[tier][level]
         int minterCount = 0;
@@ -198,15 +197,14 @@ public class PieChart
                 continue;
             
             minterCount++;        
-            
-            int level = rowLevel - 1;            
+                      
             String name = mintersTable.getValueAt(i, 1).toString();
             int tier = name.isBlank() ? 1 : 0;
                 
             if(levelCount == 1)
                 data[tier][0]++;
             else
-                data[tier][level]++;
+                data[tier][rowLevel]++;
         }
         
         CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
@@ -237,8 +235,7 @@ public class PieChart
         subtitle = "Total of " + mintersTable.getRowCount() + " minters found in network";
         subtitle += " on " + Utilities.DateFormatShort(tableTime);
         return dataset;
-    }
-    
+    }    
     
     private static CategoryDataset createLevelUpDataset(String levelType,long tableTime)
     {
@@ -296,7 +293,7 @@ public class PieChart
             String[] tiers = new String[maxLevel];
             for(int i = 0; i < tiers.length;i++)
             {
-                tiers[i] = "Level " + (i + 1) + " balance";
+                tiers[i] = "Level " + i + " balance";
             }
 
             double[][] data = new double[maxLevel][1]; //[tier][level]
@@ -311,14 +308,14 @@ public class PieChart
             while(resultSet.next())
             {
                 int rowLevel = resultSet.getInt("level");                
-                if(rowLevel > maxLevel)
+                if(rowLevel + 1 > maxLevel)//+1 accounts for level 0's
                     continue;
                 
                 Object obj = resultSet.getObject("balance");                    
                 
                 if(obj != null)
                 {
-                    data[rowLevel - 1][0] += (double)obj;
+                    data[rowLevel][0] += (double)obj;
                 }
             }
             
@@ -352,13 +349,13 @@ public class PieChart
         String[] charts = new String[]{"1-10 blocks","11-20 blocks","21-30 blocks","31-40 blocks","41-50 blocks","51-60 blocks"};
         String[] tiers = new String[maxLevel];
         for(int i = 0; i < maxLevel;i++)
-            tiers[i] = "Level " + (i+1);
+            tiers[i] = "Level " + i;
         
         double[][] data = new double[maxLevel][6]; //[tier][level]
         
         for(int i = 0; i < mintersTable.getRowCount();i++)
         {
-            int level = (int) mintersTable.getValueAt(i, 3) - 1;    
+            int level = (int) mintersTable.getValueAt(i, 3);    
             
             int bph = (int) mintersTable.getValueAt(i, 2);            
             

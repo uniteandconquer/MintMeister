@@ -538,8 +538,6 @@ public class GUI extends javax.swing.JFrame
         if(nodeMonitorPanel.startTime == 0)
             nodeMonitorPanel.startTime = System.currentTimeMillis();
         
-        clipboardLabel.setText("Click on an address to copy it to your clipboard");
-        
         //on slow systems, the dialog may not have been triggered to invisible on leaving the chart
         mintingMonitor.chartMaker.chartDialog.setVisible(false);
     }//GEN-LAST:event_nodeMonitorButtonActionPerformed
@@ -574,15 +572,16 @@ public class GUI extends javax.swing.JFrame
         card.show(mainPanel, currentCard);
         if (nodeMonitorPanel.timer != null)
             nodeMonitorPanel.timer.cancel();  
-        
-        clipboardLabel.setText("Click on an address to copy it to your clipboard");         
+              
         //on slow systems, the dialog may not have been triggered to invisible on leaving the chart
         mintingMonitor.chartMaker.chartDialog.setVisible(false);
     }//GEN-LAST:event_mintingMonitorButtonActionPerformed
 
     private void donateButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_donateButtonActionPerformed
     {//GEN-HEADEREND:event_donateButtonActionPerformed
-         CardLayout card = (CardLayout) mainPanel.getLayout();
+        clipboardLabel.setText("Click on an address to copy it to your clipboard"); 
+        
+        CardLayout card = (CardLayout) mainPanel.getLayout();
         currentCard = "tipJarPanel";
         card.show(mainPanel, currentCard);
         if (nodeMonitorPanel.timer != null)
@@ -629,7 +628,6 @@ public class GUI extends javax.swing.JFrame
         if (nodeMonitorPanel.timer != null)
             nodeMonitorPanel.timer.cancel();  
         
-        clipboardLabel.setText("Click on an address to copy it to your clipboard");         
         //on slow systems, the dialog may not have been triggered to invisible on leaving the chart
         mintingMonitor.chartMaker.chartDialog.setVisible(false);
     }//GEN-LAST:event_namesButtonActionPerformed

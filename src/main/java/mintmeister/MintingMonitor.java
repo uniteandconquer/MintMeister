@@ -249,6 +249,9 @@ public class MintingMonitor extends javax.swing.JPanel
             
             ArrayList<Object> durations = dbManager.GetColumn("minters", "duration", "duration", "desc", connection);
             
+            if(durations.isEmpty())
+                return;
+            
             long duration = (long) durations.get(0);
             long start = (long) dbManager.GetItemValue("minters", "timestamp_start", "duration", String.valueOf(duration), connection);
             long end = (long) dbManager.GetItemValue("minters", "timestamp_end", "duration", String.valueOf(duration), connection);
@@ -308,11 +311,11 @@ public class MintingMonitor extends javax.swing.JPanel
                     int totalBph = 0;
                     long totalBlocks = 0;
                     int levelUps = 0;
-                    int[] levelCount = new int[10];
-                    int[] levelBph = new int[10];
-                    int[] levelNamesReg = new int[10];
-                    int[] levelTotalMinted = new int[10];
-                    double[] balances = new double[10];
+                    int[] levelCount = new int[11];
+                    int[] levelBph = new int[11];
+                    int[] levelNamesReg = new int[11];
+                    int[] levelTotalMinted = new int[11];
+                    double[] balances = new double[11];
                     double totalMintersBalance = 0;
                     
                     appendText(String.format("----------------------------------------------\n\n"
@@ -322,7 +325,7 @@ public class MintingMonitor extends javax.swing.JPanel
                     //If ReadStringFromURL throws an error, timer is cancelled
                     Utilities.ReadStringFromURL("http://" + gui.dbManager.socket + "/admin/status");
 
-                    populateAddressesList();                       
+                    populateAddressesList(true);                       
 
                     groups = new int[8];
 
@@ -369,8 +372,24 @@ public class MintingMonitor extends javax.swing.JPanel
                             int blocksMinted = jSONObject.getInt("blocksMinted");
                             int level = jSONObject.getInt("level");
                             
+                            if(minter.name.isBlank())
+                            {
+                                jsonString = Utilities.ReadStringFromURL("http://" + gui.dbManager.socket + "/names/address/" + minter.address);
+                                JSONArray namesArray = new JSONArray(jsonString);
+                                if(namesArray.length() > 0)
+                                {
+                                    jSONObject = namesArray.getJSONObject(0);
+                                    minter.name = jSONObject.getString("name");
+                                    String updateString = "Found and updated new registered name " + minter.name +
+                                            " for address " + minter.address + " (level " + level + ")";
+                                    System.out.println(updateString);
+                                    BackgroundService.AppendLog(updateString);
+                                }                                
+                            }
+                            
                             //for some addresses the api returns level 0 (due to transferring level to different account?)
-                            if(level == 0)
+                            //IF PREVIOUS LEVEL > 0 and current level == 0, we can assume this was the case
+                            if(level == 0 && minter.level > 0)
                             {
                                 String notification = String.format("Removing address '%s' from minters list, API returned level 0 for this address", minter.address);
                                 System.out.println(notification);
@@ -389,7 +408,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             //round to 0 decimals
                             double scale = Math.pow(10, 0);
                             balance = Math.round(balance * scale) / scale;
-                            balances[level - 1] += balance;
+                            balances[level] += balance;
                             totalMintersBalance += balance;
                             
                             if(level > minter.level)
@@ -397,9 +416,9 @@ public class MintingMonitor extends javax.swing.JPanel
                                 levelUps++;
                                 minter.level = level;
                             }
-                            levelCount[level - 1]++;
+                            levelCount[level]++;
                             totalBlocks += blocksMinted;
-                            levelTotalMinted[level - 1] += blocksMinted;
+                            levelTotalMinted[level] += blocksMinted;
 
                             long timePassedMinutes = (currentTime - minter.timestampStart) / 60000;
 
@@ -448,7 +467,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             if(!minter.name.isBlank())
                             {
                                 namesCount++;
-                                levelNamesReg[level - 1]++;
+                                levelNamesReg[level]++;
                             }
 
                             //add recently added minters to uncounted group
@@ -476,7 +495,7 @@ public class MintingMonitor extends javax.swing.JPanel
                                 groups[0]++;
                             else
                             {
-                                levelBph[level - 1] += minter.blocksPerHour;
+                                levelBph[level] += minter.blocksPerHour;
                                 totalBph += minter.blocksPerHour;
                                 groups[group]++;
                             }       
@@ -541,7 +560,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             
                             dbManager.InsertIntoDB(new String[]{"levels_data",
                                 "timestamp",String.valueOf(currentTime),
-                                "level",String.valueOf(i + 1),
+                                "level",String.valueOf(i),
                                 "count",String.valueOf(levelCount[i]),
                                 "avg_bph",String.valueOf(avgBphLvl),
                                 "names_registered",String.valueOf(levelNamesReg[i]),
@@ -604,7 +623,7 @@ public class MintingMonitor extends javax.swing.JPanel
                 //don't search for new addresses if less than 3 minutes to next iteration to aviod concurrent api calls
                 if(populateTick == 178 && nextIteration - System.currentTimeMillis() > 180000)
                 {
-                    populateAddressesList();
+                    populateAddressesList(false);
                     System.gc();
                 }
                 
@@ -616,10 +635,8 @@ public class MintingMonitor extends javax.swing.JPanel
         }, 0, 1000);
     }
 
-    private void populateAddressesList()
-    {
-        appendText(Utilities.TimeFormat(System.currentTimeMillis()) + "\nSearching for unknown minters on blockchain...\n");
-        
+    private void populateAddressesList(boolean calledFromMapping)
+    {        
         try(Connection connection = ConnectionDB.getConnection("minters"))
         {        
             jsonString = Utilities.ReadStringFromURL("http://" + gui.dbManager.socket + "/addresses/online");
@@ -630,14 +647,28 @@ public class MintingMonitor extends javax.swing.JPanel
             }
             
             jSONArray = new JSONArray(jsonString);
-
-           appendText("Qortal API returned " + jSONArray.length() + " online minters.\n"
-                    + "Fetching minters info from blockchain...\n");
-
-            int lastAddressesCount = addresses.size();                
+            
+            ArrayList<String> newMinters = new ArrayList<>();
+                    
+            for (int i = 0; i < jSONArray.length(); i++)
+            {
+                String address = jSONArray.getJSONObject(i).getString("recipientAddress");
+                //some recipientAddresses in list appear to be duplicate, need to check if already added to newMinters
+                if(!addresses.contains(address) && !newMinters.contains(address))
+                    newMinters.add(address);
+            }
+            
+            //don't show this text on 3 minute interval unless new minters were found (see below)   
+            //do show if called from the mapping functin
+            if(newMinters.size() > 0 || calledFromMapping)
+            {
+                appendText(Utilities.TimeFormat(System.currentTimeMillis()) + "\nQortal API returned " + jSONArray.length() + " online minters\n");                
+                appendText("Adding " + newMinters.size() + " new minters to list\n");     
+            }
+            
             long currentTime = System.currentTimeMillis();
 
-            for (int i = 0; i < jSONArray.length(); i++)
+            for (int i = 0; i < newMinters.size(); i++)
             {
                 if (mappingHalted)
                 {
@@ -645,34 +676,27 @@ public class MintingMonitor extends javax.swing.JPanel
                     //flag and set it to false
                     return;
                 }
-                String address = jSONArray.getJSONObject(i).getString("minterAddress");
+                String address = newMinters.get(i);
+                
+                Minter minter = addMinter(address, currentTime);
+                String name = minter.name;
+                if(name.contains("'"))
+                    name = name.replace("'", "''");
 
-                //It seems the API sometimes returns duplicate addresses with the addresses/online call
-                //Presumably these are accounts currently being sponsored which are returning the sponsor's address
-                if (!addresses.contains(address))
-                {
-                    Minter minter = addMinter(address, currentTime);
-                    String name = minter.name;
-                    if(name.contains("'"))
-                        name = name.replace("'", "''");
-
-
-                    //ATTENTION: IF THERE ARE DUPLICATED IN MINTERS LIST -> THIS IS PROBABLY THE CULPRIT
-                    dbManager.InsertIntoDB(
-                          new String[]{"minters",
-                                "address", Utilities.SingleQuotedString(minter.address),
-                                "name", Utilities.SingleQuotedString(name),
-                                "blocks_hour", "0",
-                                "level", String.valueOf(minter.level),
-                                "timestamp_start", String.valueOf(minter.timestampStart),
-                                "timestamp_end", String.valueOf(minter.timestampStart),
-                                "duration", "0",
-                                "minted_session", "0",
-                                "minted_start", String.valueOf(minter.blocksMintedStart),
-                                "minted_end", String.valueOf(minter.blocksMintedStart),
-                                "level_timestamp", "0",
-                                "level_duration", "0"}, connection);
-                }                  
+                dbManager.InsertIntoDB(
+                      new String[]{"minters",
+                            "address", Utilities.SingleQuotedString(minter.address),
+                            "name", Utilities.SingleQuotedString(name),
+                            "blocks_hour", "0",
+                            "level", String.valueOf(minter.level),
+                            "timestamp_start", String.valueOf(minter.timestampStart),
+                            "timestamp_end", String.valueOf(minter.timestampStart),
+                            "duration", "0",
+                            "minted_session", "0",
+                            "minted_start", String.valueOf(minter.blocksMintedStart),
+                            "minted_end", String.valueOf(minter.blocksMintedStart),
+                            "level_timestamp", "0",
+                            "level_duration", "0"}, connection);                  
 
                 final int current = i;
                 SwingUtilities.invokeLater(()->
@@ -684,17 +708,17 @@ public class MintingMonitor extends javax.swing.JPanel
             }
             progressBar.setValue(0);
 
-            if(addresses.size() - lastAddressesCount > 0)
+            if(newMinters.size() > 0 || calledFromMapping)
             {
+                appendText(String.format(
+                     "Added %d new minters. Total minters in list: %d\n\n", newMinters.size(), addresses.size()));
+                
                 fillMinterTable("MINTED_END","desc");
                 //to know the session rank we need to iterate over the entire minted_session column
                 //calling this function does this, but adds a little (negligible?) overhead by filling the table
                 //in order and making db entries
                 setMinterRank();
             }
-
-           appendText(String.format(
-                    "Added %d new minters. Total minters in list: %d\n\n", addresses.size() - lastAddressesCount, addresses.size()));
                
         }
         catch (ConnectException e)
@@ -819,7 +843,7 @@ public class MintingMonitor extends javax.swing.JPanel
             
             int currentRow = 0;
             int mintersPerLevel = mintersPerLevelSlider.getValue() + 1;
-            for(int i = 1; i <= maxLevel; i++)
+            for(int i = 0; i <= maxLevel; i++)
             {
                 statement = connection.createStatement();
                 resultSet = statement.executeQuery("select * from minters where level=" + i + " order by level_duration");
@@ -1044,7 +1068,7 @@ public class MintingMonitor extends javax.swing.JPanel
                 
                 selectedNode = bphTotalNode;
                 
-                for(int i2 = 1; i2 <= maxLevel; i2++)
+                for(int i2 = 0; i2 <= maxLevel; i2++)
                 {                
                     DefaultMutableTreeNode levelNode = 
                             new DefaultMutableTreeNode(new NodeInfo("Level " + i2, ""));
@@ -1097,7 +1121,7 @@ public class MintingMonitor extends javax.swing.JPanel
                         new DefaultMutableTreeNode(new NodeInfo("Level-ups bar chart", "arrow-right.png"));
                 allLevelsNode.add(levelUpsBar);           
                 
-                for(int i2 = 1; i2 <= maxLevel; i2++)
+                for(int i2 = 0; i2 <= maxLevel; i2++)
                 {                
                     DefaultMutableTreeNode levelNode = 
                             new DefaultMutableTreeNode(new NodeInfo("Level " + i2, ""));
@@ -1163,7 +1187,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             }
                             break;
                         case "Pie charts":                           
-                            int maxLevel = (int)dbManager.GetColumn("minters", "level", "level", "desc", connection).get(0);   
+                            int maxLevel = (int)dbManager.GetColumn("minters", "level", "level", "desc", connection).get(0) + 1;//account for level 0   
                             long tableTime = (long)dbManager.GetColumn("minters", "timestamp_end", "timestamp_end", "desc", connection).get(0);   
                             pieChart = new PieChart(selected,levelType,maxLevel,tableTime,mintersTable);
                             chartsTab.setRightComponent(pieChart.chartPanel);
@@ -1243,6 +1267,7 @@ public class MintingMonitor extends javax.swing.JPanel
         if(countDownTimer != null)
             countDownTimer.cancel();
         
+        iterations = 0;
         setUiComponentsByMapping(false);
         
         progressBar.setValue(0);
@@ -2034,7 +2059,6 @@ public class MintingMonitor extends javax.swing.JPanel
     {//GEN-HEADEREND:event_stopMappingButtonActionPerformed
         setUiComponentsByMapping(false);
         
-        iterations = 0;         
         mappingHalted = true;          
         appendText("Mapping was ended by user at " + Utilities.DateFormat(System.currentTimeMillis()) + "\n\n");
         progressBar.setStringPainted(false);
