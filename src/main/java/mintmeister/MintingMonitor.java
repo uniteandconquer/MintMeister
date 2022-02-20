@@ -50,7 +50,7 @@ public class MintingMonitor extends javax.swing.JPanel
     private String jsonString;
     private JSONObject jSONObject;
     private JSONArray jSONArray;
-    private final int timeTreshold = 5;
+    private final int timeTreshold = 10;
     private int[] groups;
     int iterations;
     long startTime;
@@ -88,6 +88,8 @@ public class MintingMonitor extends javax.swing.JPanel
             this.gui = gui;
             dbManager = this.gui.dbManager;
             chartMaker = new ChartMaker("", gui);
+            
+            checkCompatibility();
 
             fillMinterTable("MINTED_END","desc");
             setMinterRank();   
@@ -224,7 +226,7 @@ public class MintingMonitor extends javax.swing.JPanel
         try (Connection connection = ConnectionDB.getConnection("minters"))
         {                        
             if (dbManager.TableExists("minters", connection))
-            {        
+            {      
                 dbManager.FillJTableOrder("minters", headerName,order, mintersTable, connection);
             }
             else
@@ -232,18 +234,18 @@ public class MintingMonitor extends javax.swing.JPanel
                     dbManager.CreateTable(new String[]{"minters","address","varchar(100)","name","varchar(100)",
                                 "blocks_hour","int","level","int","rank_session","int","rank_all_time","int", "timestamp_start","long",
                                 "timestamp_end","long","duration","long","minted_session","int", "minted_start","int","minted_end","int",
-                                "level_timestamp","long","level_duration","long"}, connection);
+                                "minted_adj","int","level_timestamp","long","level_duration","long"}, connection);
             } 
             
             //the following 2 tables are used to store some data to track network growth/progress over time
             if(!dbManager.TableExists("minters_data", connection))
             {
-                dbManager.CreateTable(new String[]{"minters_data","timestamp","long","minters_count","int","names_registered","int",
+                dbManager.CreateTable(new String[]{"minters_data","timestamp","long","minters_count","inactive","int","int","names_registered","int",
                     "avg_bph","double","total_minted_network","long","level_ups","int","total_balance","double"}, connection);  
             }
             if(!dbManager.TableExists("levels_data", connection))
             {
-                dbManager.CreateTable(new String[]{"levels_data","timestamp", "long","level","int","count","int",
+                dbManager.CreateTable(new String[]{"levels_data","timestamp", "long","level","int","count","int","inactive","int",
                     "names_registered","int","avg_bph","double","total_minted_level","long","balance","double"}, connection);               
             }  
             
@@ -282,6 +284,52 @@ public class MintingMonitor extends javax.swing.JPanel
         
         updateDataTimeLabels();
     }
+    
+    private void checkCompatibility()
+    {
+        File dbFile = new File(System.getProperty("user.dir") + "/minters/minters.mv.db");
+        
+        if (!dbFile.exists())
+            return;
+        
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {
+            if(dbManager.TableExists("minters", connection))
+            {
+                if(!dbManager.GetColumnHeaders("minters", connection).contains("MINTED_ADJ"))
+                {
+                    dbManager.ExecuteUpdate("alter table minters add minted_adj int", connection);
+                    dbManager.ExecuteUpdate("update minters set minted_adj=0", connection);
+                    System.out.println("Added minted_adj column to minters table");
+                    BackgroundService.AppendLog("Added minted_adj column to minters table");
+                }
+            }                
+            if(dbManager.TableExists("minters_data", connection))
+            {
+                if(!dbManager.GetColumnHeaders("minters_data", connection).contains("INACTIVE"))
+                {
+                    dbManager.ExecuteUpdate("alter table minters_data add inactive int", connection);
+                    dbManager.ExecuteUpdate("update minters_data set inactive=0", connection);
+                    System.out.println("Added inactive column to minters_data table");
+                    BackgroundService.AppendLog("Added inactive column to minters_data table");
+                }
+            }               
+            if(dbManager.TableExists("levels_data", connection))
+            {
+                if(!dbManager.GetColumnHeaders("levels_data", connection).contains("INACTIVE"))
+                {
+                    dbManager.ExecuteUpdate("alter table levels_data add inactive int", connection);
+                    dbManager.ExecuteUpdate("update levels_data set inactive=0", connection);
+                    System.out.println("Added inactive column to levels_data table");
+                    BackgroundService.AppendLog("Added inactive column to levels_data table");
+                }
+            }    
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+    }
 
     private void startMapping()
     {            
@@ -315,6 +363,7 @@ public class MintingMonitor extends javax.swing.JPanel
                     int[] levelBph = new int[11];
                     int[] levelNamesReg = new int[11];
                     int[] levelTotalMinted = new int[11];
+                    int[] levelInactive = new int[11];
                     double[] balances = new double[11];
                     double totalMintersBalance = 0;
                     
@@ -327,7 +376,7 @@ public class MintingMonitor extends javax.swing.JPanel
 
                     populateAddressesList(true);                       
 
-                    groups = new int[8];
+                    groups = new int[9];
 
                     if(!mappingHalted)
                     {
@@ -369,6 +418,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             Minter minter = minters.get(i);
                             jsonString = Utilities.ReadStringFromURL("http://" + gui.dbManager.socket + "/addresses/" + minter.address);
                             jSONObject = new JSONObject(jsonString);
+                            int mintedAdjustment = jSONObject.getInt("blocksMintedAdjustment");
                             int blocksMinted = jSONObject.getInt("blocksMinted");
                             int level = jSONObject.getInt("level");
                             
@@ -437,7 +487,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             {
                                 if(level < 10)
                                 {
-                                    int blocksLeft = levels[level + 1] - blocksMinted;
+                                    int blocksLeft = levels[level + 1] - (blocksMinted + mintedAdjustment);
                                     double hoursLeft = ((double) blocksLeft / (int)bph);
                                     millisecLeft = hoursLeft * 3600000;
                                     
@@ -461,6 +511,7 @@ public class MintingMonitor extends javax.swing.JPanel
                                         "minted_session", String.valueOf(mintedSession),
                                         "minted_start", String.valueOf(minter.blocksMintedStart),
                                         "minted_end", String.valueOf(blocksMinted),
+                                        "minted_adj",String.valueOf(mintedAdjustment),
                                         "level_timestamp", String.valueOf(timestampLevelUp),
                                         "level_duration",String.valueOf((long)millisecLeft)}, connection);                     
 
@@ -476,10 +527,11 @@ public class MintingMonitor extends javax.swing.JPanel
                                 groups[7]++;
                                 continue;
                             }
-                            //add minters with 0 bph to anomalies
+                            //add inactive minters (0 bph && timePassed > timeTreshold) to group 8
                             if(bph == 0)
                             {
-                                groups[0]++;
+                                levelInactive[level]++;
+                                groups[8]++;
                                 continue;
                             }
                             
@@ -512,6 +564,7 @@ public class MintingMonitor extends javax.swing.JPanel
                                  + "31 - 40 : %d (%.2f%%)\n"
                                  + "41 - 50 : %d (%.2f%%)\n"
                                  + "51 - 60 : %d (%.2f%%)\n\n"
+                                 + "inactive minters : %d (%.2f%%)\n"
                                  + "anomalies : %d (%.2f%%) (irregular data)\n"
                                  + "uncounted : %d (%.2f%%) (not enough data)\n\n"
                                  + "Names registered : %d out of %d minters (%.2f%%)\n\n", 
@@ -521,6 +574,7 @@ public class MintingMonitor extends javax.swing.JPanel
                                 groups[4],(double) (((double)groups[4] / minters.size()) * 100),
                                 groups[5],(double) (((double)groups[5] / minters.size()) * 100),
                                 groups[6],(double) (((double)groups[6] / minters.size()) * 100),
+                                groups[8],(double) (((double)groups[8] / minters.size()) * 100) ,
                                 groups[0],(double) (((double)groups[0] / minters.size()) * 100),  
                                 groups[7],(double) (((double)groups[7] / minters.size()) * 100) ,
                                 namesCount,minters.size(),((double) namesCount / minters.size()) * 100
@@ -550,7 +604,8 @@ public class MintingMonitor extends javax.swing.JPanel
                             "total_minted_network",String.valueOf(totalBlocks),
                             "names_registered",String.valueOf(namesCount),
                             "level_ups",String.valueOf(levelUps),
-                            "total_balance",String.valueOf(totalMintersBalance)}, connection);
+                            "total_balance",String.valueOf(totalMintersBalance),
+                            "inactive",String.valueOf(groups[8])}, connection);
                         
                         for(int i = 0; i < levelCount.length; i++)
                         {   
@@ -565,7 +620,8 @@ public class MintingMonitor extends javax.swing.JPanel
                                 "avg_bph",String.valueOf(avgBphLvl),
                                 "names_registered",String.valueOf(levelNamesReg[i]),
                                 "total_minted_level",String.valueOf(levelTotalMinted[i]),
-                                "balance",String.valueOf(balances[i])}, connection);                            
+                                "balance",String.valueOf(balances[i]),
+                                "inactive",String.valueOf(levelInactive[i])}, connection);                            
                         }  
                         
                         BackgroundService.AppendLog("Total API calls made :  " + Utilities.integerFormat(BackgroundService.totalApiCalls));
@@ -744,7 +800,7 @@ public class MintingMonitor extends javax.swing.JPanel
             dbManager.CreateTable(new String[]{"minters_temp","address","varchar(100)","name","varchar(100)",
                 "blocks_hour","int","level","int","rank_session","int","rank_all_time","int", "timestamp_start","long",
                 "timestamp_end","long","duration","long", "minted_session","int", "minted_start","int","minted_end","int",
-                "level_timestamp","long","level_duration","long"}, connection);
+                "minted_adj","int","level_timestamp","long","level_duration","long"}, connection);
     }
     
     private void collapseAll(JTree tree, TreePath parent)
@@ -917,57 +973,62 @@ public class MintingMonitor extends javax.swing.JPanel
                     else
                         appendText("Found " + mintersTable.getRowCount() + " minters on file.\n\n");
                       
-                    final int size = mintersTable.getRowCount();
+                    final int size = mintersTable.getRowCount();                    
                     
-                    for(int i = 0; i < mintersTable.getRowCount(); i++)
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet = statement.executeQuery(
+                            "select address,name,level,timestamp_start,minted_start from minters order by minted_end desc");
+                    
+                    int count = 0;
+                    //resultset size and minterstable size are the same
+                    while(resultSet.next())
                     {
                         long currentTime = System.currentTimeMillis();             
-                           if(mappingHalted)
-                           {
-                               SwingUtilities.invokeLater(()->
-                               {                               
-                                   mappingHalted = false;
-                                   addresses = new ArrayList<>();
-                                   minters = new ArrayList<>();
-                                   stopMapping();
-                               });
-                               return;
-                           }
+                        if(mappingHalted)
+                        {
+                            SwingUtilities.invokeLater(()->
+                            {                               
+                                mappingHalted = false;
+                                addresses = new ArrayList<>();
+                                minters = new ArrayList<>();
+                                stopMapping();
+                            });
+                            return;
+                        }
 
-                           String address = mintersTable.getValueAt(i, 0).toString();
+                        String address = resultSet.getString("address");
 
-                           if(newSession)
-                               addMinter((String)address, currentTime);
-                           else
-                           {         
-                               String name = mintersTable.getValueAt(i, 1).toString();
-                               int level = (int) mintersTable.getValueAt(i, 3);
-                               int mintedStart = (int)mintersTable.getValueAt(i, 10);
-                               //timestamp is stored as String in table, we need a long
-                               long sessionStartTime = (long) dbManager.GetItemValue("minters", "timestamp_start", "address",
-                                       Utilities.SingleQuotedString(address), connection);                               
-                               
-                               addresses.add(address);
-                               minters.add(new Minter(address, name, level,mintedStart,sessionStartTime));
-                           }
+                        if(newSession)
+                            addMinter((String)address, currentTime);
+                        else
+                        {         
+                            String name = resultSet.getString("name");
+                            int level = resultSet.getInt("level");
+                            int mintedStart = resultSet.getInt("minted_start");
+                            long sessionStartTime = resultSet.getLong("timestamp_start");
 
-                           //local variable cannot be used in lambda expression
-                           final int current = i;
+                            addresses.add(address);
+                            minters.add(new Minter(address, name, level,mintedStart,sessionStartTime));
+                        }
 
-                           if(newSession)
-                           {
-                               SwingUtilities.invokeLater(()->
-                                {
-                                    double percent = ((double) current / size) * 100;
-                                    progressBar.setValue((int)percent);   
-                                    progressBar.setString((int) percent + "%");
-                                });
-                           }
+                        //local variable cannot be used in lambda expression
+                        final int current = count;
+
+                        if(newSession)
+                        {
+                            SwingUtilities.invokeLater(()->
+                             {
+                                 double percent = ((double) current / size) * 100;
+                                 progressBar.setValue((int)percent);   
+                                 progressBar.setString((int) percent + "%");
+                             });
+                        }
                            
-                       progressBar.setValue(0);                       
-                    }                    
-                }  
-                
+                        count++;
+                    }
+                    
+                    progressBar.setValue(0);                       
+                }                  
                 startTime = System.currentTimeMillis();
                 startMapping();
             }
@@ -1065,6 +1126,9 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode balanceDistNode = 
                         new DefaultMutableTreeNode(new NodeInfo("Balance distribution", "arrow-right.png"));
                 allLevelsNode.add(balanceDistNode);
+                DefaultMutableTreeNode inactivesNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("Inactive minters distribution", "arrow-right.png"));
+                allLevelsNode.add(inactivesNode);
                 
                 selectedNode = bphTotalNode;
                 
@@ -1119,7 +1183,10 @@ public class MintingMonitor extends javax.swing.JPanel
                 allLevelsNode.add(levelUpsLine);    
                 DefaultMutableTreeNode levelUpsBar = 
                         new DefaultMutableTreeNode(new NodeInfo("Level-ups bar chart", "arrow-right.png"));
-                allLevelsNode.add(levelUpsBar);           
+                allLevelsNode.add(levelUpsBar);     
+                DefaultMutableTreeNode inactivesNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("Total inactive minters", "arrow-right.png"));
+                allLevelsNode.add(inactivesNode);      
                 
                 for(int i2 = 0; i2 <= maxLevel; i2++)
                 {                
@@ -1145,6 +1212,9 @@ public class MintingMonitor extends javax.swing.JPanel
                     totalBalanceLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Total balance minters in level", "arrow-right.png"));
                     levelNode.add(totalBalanceLine);
+                    inactivesNode = 
+                            new DefaultMutableTreeNode(new NodeInfo("Inactive minters", "arrow-right.png"));
+                    levelNode.add(inactivesNode);
                 }
             }
         }       
@@ -1247,6 +1317,10 @@ public class MintingMonitor extends javax.swing.JPanel
                         return statement.executeQuery("select timestamp,total_balance from minters_data");
                 case "Total balance minters in level":
                         return statement.executeQuery("select timestamp,balance from levels_data where level=" + level);
+                case "Total inactive minters":
+                        return statement.executeQuery("select timestamp,inactive from minters_data");
+                case "Inactive minters":
+                        return statement.executeQuery("select timestamp,inactive from levels_data where level=" + level);
             }
         }
         catch(SQLException e)
@@ -1375,7 +1449,9 @@ public class MintingMonitor extends javax.swing.JPanel
     {
         java.awt.GridBagConstraints gridBagConstraints;
 
-        chartsMenuPanel = new javax.swing.JPanel();
+        waitDialog = new javax.swing.JDialog();
+        jPanel1 = new javax.swing.JPanel();
+        jLabel3 = new javax.swing.JLabel();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         minterMappingTab = new javax.swing.JSplitPane();
         textPanel = new javax.swing.JPanel();
@@ -1415,6 +1491,7 @@ public class MintingMonitor extends javax.swing.JPanel
         dataTimeLabel1 = new javax.swing.JLabel();
         mintersTableScrollpane = new javax.swing.JScrollPane();
         mintersTable = new javax.swing.JTable();
+        mintersTable.getTableHeader().setReorderingAllowed(false);
         chartsTab = new javax.swing.JSplitPane();
         chartPanelPlaceHolder = new javax.swing.JPanel();
         chartsTreeSplitPane = new javax.swing.JSplitPane();
@@ -1435,7 +1512,26 @@ public class MintingMonitor extends javax.swing.JPanel
         levelUpsMenuLower = new javax.swing.JPanel();
         dataTimeLabel = new javax.swing.JLabel();
 
-        chartsMenuPanel.setLayout(new java.awt.GridBagLayout());
+        waitDialog.setAlwaysOnTop(true);
+        waitDialog.setUndecorated(true);
+
+        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel3.setText("Loading minters list, please wait...");
+        jLabel3.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(51, 51, 51), 3, true));
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 399, Short.MAX_VALUE)
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 232, Short.MAX_VALUE)
+        );
+
+        waitDialog.getContentPane().add(jPanel1, java.awt.BorderLayout.PAGE_START);
 
         minterMappingTab.setDividerLocation(300);
 
@@ -1945,7 +2041,7 @@ public class MintingMonitor extends javax.swing.JPanel
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 715, Short.MAX_VALUE)
+            .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2145,11 +2241,28 @@ public class MintingMonitor extends javax.swing.JPanel
                 return;
             }
             
-            tempFile.delete();
-            fillMinterTable("minted_end", "desc");
-            setMinterRank();
-            fillLevellingTable();
-            JOptionPane.showMessageDialog(this, "Minters list loaded successfully"); 
+            Thread thread = new Thread(()->
+            {
+                 SwingUtilities.invokeLater(()->
+                {
+                    waitDialog.setSize(200,100);
+                    waitDialog.pack();
+                    int x = gui.getX() + ((gui.getWidth() / 2) - (waitDialog.getWidth()/ 2));
+                    int y = gui.getY() + ((gui.getHeight() / 2) - (waitDialog.getHeight() / 2));
+                    waitDialog.setLocation(x,y);
+                    waitDialog.setVisible(true);   
+                });
+
+                checkCompatibility();
+                tempFile.delete();
+                fillMinterTable("minted_end", "desc");
+                setMinterRank();
+                fillLevellingTable();
+
+                waitDialog.setVisible(false);
+                JOptionPane.showMessageDialog(this, "Minters list loaded successfully"); 
+            });
+            thread.start();               
         }
     }//GEN-LAST:event_loadMintersButtonActionPerformed
 
@@ -2226,7 +2339,6 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JCheckBox balanceCheckbox;
     private javax.swing.JCheckBox caseCheckbox;
     private javax.swing.JPanel chartPanelPlaceHolder;
-    private javax.swing.JPanel chartsMenuPanel;
     private javax.swing.JSplitPane chartsTab;
     private javax.swing.JTree chartsTree;
     private javax.swing.JPanel chartsTreeMenu;
@@ -2240,6 +2352,8 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JSlider hoursSlider;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JSeparator jSeparator1;
     private javax.swing.JSeparator jSeparator2;
     private javax.swing.JTabbedPane jTabbedPane1;
@@ -2277,5 +2391,6 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JTextArea textArea;
     private javax.swing.JScrollPane textAreaScrollPane;
     private javax.swing.JPanel textPanel;
+    private javax.swing.JDialog waitDialog;
     // End of variables declaration//GEN-END:variables
 }

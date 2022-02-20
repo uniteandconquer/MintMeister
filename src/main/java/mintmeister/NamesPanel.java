@@ -360,6 +360,7 @@ public class NamesPanel extends javax.swing.JPanel
         namesTab = new javax.swing.JSplitPane();
         namesScrollpane = new javax.swing.JScrollPane();
         namesTable = new javax.swing.JTable();
+        namesTable.getTableHeader().setReorderingAllowed(false);
         namesMenuScrollpane = new javax.swing.JScrollPane();
         namesMenuPanel = new javax.swing.JPanel();
         namesProgressBar = new javax.swing.JProgressBar();

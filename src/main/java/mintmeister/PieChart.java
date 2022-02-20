@@ -55,6 +55,9 @@ public class PieChart
             case "Balance distribution":
                 dataset = createBalanceDistDataset(maxLevel, tableTime);
                 break;
+            case "Inactive minters distribution":
+                dataset = createInactiveDistDataset(maxLevel,tableTime);
+                break;
         }
         
         if(dataset == null)
@@ -64,7 +67,7 @@ public class PieChart
         chartPanel = new ChartPanel(chart, true, true, true, false,true);
     }
 
-    private static CategoryDataset createBphDataset(String levelType,int maxLevel,long tableTime,JTable mintersTable)
+    private CategoryDataset createBphDataset(String levelType,int maxLevel,long tableTime,JTable mintersTable)
     {
         int levelCount = levelType.equals("All levels") ? maxLevel : 1;
         int chartLevel = 0;
@@ -149,7 +152,7 @@ public class PieChart
 //        };
     }
     
-    private static CategoryDataset createLevelDistDataset(int maxLevel,long tableTime,JTable mintersTable)
+    private CategoryDataset createLevelDistDataset(int maxLevel,long tableTime,JTable mintersTable)
     {        
         String[] levels = new String[maxLevel];
         for(int i = 0; i < maxLevel;i++)
@@ -171,7 +174,64 @@ public class PieChart
         return dataset;
     }
     
-    private static CategoryDataset createNamesDataset(String levelType,int maxLevel,long tableTime,JTable mintersTable)
+    private CategoryDataset createInactiveDistDataset(int maxLevel,long tableTime)
+    {
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {                
+            String[] tiers = new String[maxLevel];
+            for(int i = 0; i < tiers.length;i++)
+            {
+                tiers[i] = "Level " + i + " inactives";
+            }
+
+            double[][] data = new double[maxLevel][1]; //[tier][level]
+            
+            long lastEntryTime = (long) BackgroundService.GUI.dbManager.GetColumn(
+                    "levels_data", "timestamp", "timestamp", "desc", connection).get(0);
+             
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(
+                    "select level,inactive from levels_data where timestamp=" + String.valueOf(lastEntryTime));       
+            
+            while(resultSet.next())
+            {
+                int rowLevel = resultSet.getInt("level");                
+                if(rowLevel + 1 > maxLevel)//+1 accounts for level 0's
+                    continue;
+                
+                Object obj = resultSet.getObject("inactive");                    
+                
+                if(obj != null)
+                {
+                    data[rowLevel][0] += (int)obj;
+                }
+            }
+            
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery(
+                "select inactive,minters_count from minters_data where timestamp=" + String.valueOf(lastEntryTime));  
+            resultSet.next();
+            int totalInactives = resultSet.getInt("inactive");
+            int minterCount = resultSet.getInt("minters_count");
+
+            String[] levels = new String[]{String.format("On %s\nTotal inactives for all levels was %s",
+                    Utilities.DateFormatShort(lastEntryTime),Utilities.numberFormat(totalInactives))};            
+
+            CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
+
+            subtitle = "Total of " + minterCount + " minters found in network";
+            subtitle += " on " + Utilities.DateFormatShort(tableTime);
+            return dataset;
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;           
+    }
+    
+    private CategoryDataset createNamesDataset(String levelType,int maxLevel,long tableTime,JTable mintersTable)
     {
         int levelCount = levelType.equals("All levels") ? maxLevel : 1;
         int chartLevel = 0;
@@ -215,7 +275,7 @@ public class PieChart
         return dataset;
     }
     
-    private static CategoryDataset createNamesNetworkDataset(long tableTime,JTable mintersTable)
+    private CategoryDataset createNamesNetworkDataset(long tableTime,JTable mintersTable)
     {                
         String[] tiers = new String[]{"Registered a name","No name registered"};
         String[] levels = new String[]{"All levels"};
@@ -237,7 +297,7 @@ public class PieChart
         return dataset;
     }    
     
-    private static CategoryDataset createLevelUpDataset(String levelType,long tableTime)
+    private CategoryDataset createLevelUpDataset(String levelType,long tableTime)
     {
         try(Connection connection = ConnectionDB.getConnection("minters"))
         {
@@ -286,7 +346,7 @@ public class PieChart
         return null;           
     }
     
-    private static CategoryDataset createBalanceDistDataset(int maxLevel,long tableTime)
+    private CategoryDataset createBalanceDistDataset(int maxLevel,long tableTime)
     {
         try(Connection connection = ConnectionDB.getConnection("minters"))
         {                
@@ -343,7 +403,7 @@ public class PieChart
         return null;           
     }
     
-    private static CategoryDataset createBphDistDataset(int maxLevel,long tableTime,JTable mintersTable)
+    private CategoryDataset createBphDistDataset(int maxLevel,long tableTime,JTable mintersTable)
     {      
         //creates 6 piecharts for every bph tier and displays the percentage of each level that is represented in those charts
         String[] charts = new String[]{"1-10 blocks","11-20 blocks","21-30 blocks","31-40 blocks","41-50 blocks","51-60 blocks"};
@@ -378,7 +438,7 @@ public class PieChart
         return dataset;        
     }
     
-    private static CategoryDataset createBphNetworkDataset(long tableTime,JTable mintersTable)
+    private CategoryDataset createBphNetworkDataset(long tableTime,JTable mintersTable)
     {     
         String[] tiers = new String[]{"0 blocks","1-10 blocks","11-20 blocks","21-30 blocks","31-40 blocks","41-50 blocks","51-60 blocks"};
         String[] levels = new String[]{"All levels"};
@@ -416,7 +476,7 @@ public class PieChart
         return dataset;
     }
 
-    private static JFreeChart createChart(String title,CategoryDataset dataset)
+    private JFreeChart createChart(String title,CategoryDataset dataset)
     {
         JFreeChart chart = ChartFactory.createMultiplePieChart(
                 title, // chart title

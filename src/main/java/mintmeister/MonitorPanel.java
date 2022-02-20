@@ -365,7 +365,8 @@ public class MonitorPanel extends javax.swing.JPanel
                     monitorTreeModel.valueForPathChanged(new TreePath(mintingAccountNode.getPath()),
                         Main.BUNDLE.getString("activeAccountDBM") + myMintingAddress);                    
                     monitorTreeModel.valueForPathChanged(new TreePath(blocksMintedNode.getPath()),String.format(
-                            Main.BUNDLE.getString("blocksMintedDBM") + "%s",NumberFormat.getIntegerInstance().format(jSONObject.getInt("blocksMinted"))));                    
+                            Main.BUNDLE.getString("blocksMintedDBM") + "%s",NumberFormat.getIntegerInstance().format(
+                                    jSONObject.getInt("blocksMinted") +  jSONObject.getInt("blocksMintedAdjustment"))));                    
                     monitorTreeModel.valueForPathChanged(new TreePath(balanceNode.getPath()),
                             Main.BUNDLE.getString("balanceDBM") + myBalance + " QORT");                              
                     monitorTreeModel.valueForPathChanged(new TreePath(levelNode.getPath()),

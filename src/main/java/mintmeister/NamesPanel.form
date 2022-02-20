@@ -53,6 +53,9 @@
           <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
           <SubComponents>
             <Component class="javax.swing.JTable" name="namesTable">
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_CreateCodePost" type="java.lang.String" value="namesTable.getTableHeader().setReorderingAllowed(false);"/>
+              </AuxValues>
             </Component>
           </SubComponents>
         </Container>
