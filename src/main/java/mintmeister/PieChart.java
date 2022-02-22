@@ -58,6 +58,18 @@ public class PieChart
             case "Inactive minters distribution":
                 dataset = createInactiveDistDataset(maxLevel,tableTime);
                 break;
+            case "Active minters distribution":
+                dataset = createActiveDistDataset(maxLevel,tableTime);
+                break;
+            case "Active/inactive ratio":
+                if(levelType.equals("All levels"))
+                    dataset = createActiveRatioAllDataset(maxLevel,tableTime);
+                else   
+                    dataset = createActiveRatioDataset(levelType,tableTime);                 
+                break;
+            case "Active/inactive ratio network":
+                    dataset = createActiveRatioDataset(levelType,tableTime);
+                break;
         }
         
         if(dataset == null)
@@ -229,6 +241,64 @@ public class PieChart
         }
         
         return null;           
+    }    
+    
+    private CategoryDataset createActiveDistDataset(int maxLevel,long tableTime)
+    {
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {                
+            String[] tiers = new String[maxLevel];
+            for(int i = 0; i < tiers.length;i++)
+            {
+                tiers[i] = "Level " + i + " inactives";
+            }
+
+            double[][] data = new double[maxLevel][1]; //[tier][level]
+            
+            long lastEntryTime = (long) BackgroundService.GUI.dbManager.GetColumn(
+                    "levels_data", "timestamp", "timestamp", "desc", connection).get(0);
+             
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(
+                    "select level,inactive,count from levels_data where timestamp=" + String.valueOf(lastEntryTime));       
+            
+            while(resultSet.next())
+            {
+                int rowLevel = resultSet.getInt("level");                
+                if(rowLevel + 1 > maxLevel)//+1 accounts for level 0's
+                    continue;
+                
+                Object inactive = resultSet.getObject("inactive");    
+                Object count = resultSet.getObject("count");
+                
+                if(inactive != null)
+                {
+                    data[rowLevel][0] += (int)count - (int)inactive;
+                }
+            }
+            
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery(
+                "select inactive,minters_count from minters_data where timestamp=" + String.valueOf(lastEntryTime));  
+            resultSet.next();
+            int totalInactives = resultSet.getInt("inactive");
+            int minterCount = resultSet.getInt("minters_count");
+
+            String[] levels = new String[]{String.format("On %s\nTotal actives for all levels was %s",
+                    Utilities.DateFormatShort(lastEntryTime),Utilities.numberFormat(minterCount - totalInactives))};            
+
+            CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
+
+            subtitle = "Total of " + minterCount + " minters found in network";
+            subtitle += " on " + Utilities.DateFormatShort(tableTime);
+            return dataset;
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;           
     }
     
     private CategoryDataset createNamesDataset(String levelType,int maxLevel,long tableTime,JTable mintersTable)
@@ -271,6 +341,122 @@ public class PieChart
 
         subtitle = "Total of " + minterCount + " minters found in ";
         subtitle += levelCount == 1 ? "level " + chartLevel : "network";
+        subtitle += " on " + Utilities.DateFormatShort(tableTime);
+        return dataset;
+    }
+    
+    private CategoryDataset createActiveRatioDataset(String levelType,long tableTime)
+    {
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {
+            String[] tiers = new String[]{"Active","Inactive"};
+
+            double[][] data = new double[2][1]; //[tier][level]
+            
+            long lastEntryTime = (long) BackgroundService.GUI.dbManager.GetColumn(
+                    "minters_data", "timestamp", "timestamp", "desc", connection).get(0);
+            
+            Statement statement = connection.createStatement();
+            ResultSet resultSet;
+            
+            double activesCount = 0;
+            double inactivesCount = 0;
+            
+            if(levelType.equals("All levels"))
+            {
+                resultSet = statement.executeQuery(
+                        "select minters_count,inactive from minters_data where timestamp=" + String.valueOf(lastEntryTime));
+                
+                while(resultSet.next())
+                {
+                    data[0][0] += resultSet.getInt("minters_count") - resultSet.getInt("inactive");
+                    data[1][0] += resultSet.getInt("inactive");
+                    activesCount = data[0][0];
+                    inactivesCount = data[1][0];
+                }
+            }
+            else
+            { 
+                resultSet = statement.executeQuery(
+                        "select count,inactive,level from levels_data where timestamp=" + String.valueOf(lastEntryTime));
+                
+                int chartLevel = Integer.parseInt(levelType.replaceAll("[^0-9]", "")); 
+                
+                while(resultSet.next())
+                {
+                    if(resultSet.getInt("level") != chartLevel)
+                        continue;
+                    
+                    data[0][0] += resultSet.getInt("count") - resultSet.getInt("inactive");
+                    data[1][0] += resultSet.getInt("inactive");
+                    activesCount = data[0][0];
+                    inactivesCount = data[1][0];
+                }
+            }
+            
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery(
+                "select minters_count from minters_data where timestamp=" + String.valueOf(lastEntryTime));  
+            resultSet.next();
+            int minterCount = resultSet.getInt("minters_count");
+            
+            String[] levels = new String[]{String.format("On %s\n%s actives %s, inactives %s",
+                   Utilities.DateFormatShort(lastEntryTime),levelType,Utilities.numberFormat((int)activesCount),
+                   Utilities.numberFormat((int)inactivesCount))};            
+
+            CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
+
+            subtitle = "Total of " + minterCount + " minters found in network";
+            subtitle += " on " + Utilities.DateFormatShort(tableTime);
+            return dataset;            
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        return null;
+    }
+    
+    private CategoryDataset createActiveRatioAllDataset(int maxLevel,long tableTime)
+    {        
+        int chartLevel = 0; 
+        
+        String[] tiers = new String[]{"Active","Inactive"};
+        String[] levels = new String[maxLevel];
+            for(int i = 0; i < maxLevel;i++)
+                levels[i] = "Level " + i;
+        
+        double[][] data = new double[2][maxLevel]; //[tier][level]  
+        int minterCount = 0;
+        
+        try(Connection connection = ConnectionDB.getConnection("minters"))
+        {
+            long lastEntryTime = (long) BackgroundService.GUI.dbManager.GetColumn(
+                    "levels_data", "timestamp", "timestamp", "desc", connection).get(0);
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery("select count,inactive,level from levels_data where timestamp=" + lastEntryTime);
+            
+            while(resultSet.next())
+            {
+                int count = resultSet.getInt("count");
+                int inactive = resultSet.getInt("inactive");
+                int level = resultSet.getInt("level");
+                
+                minterCount += count;
+                
+                data[0][level] = count - inactive;
+                data[1][level] = inactive;
+            }
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        CategoryDataset dataset = DatasetUtils.createCategoryDataset(tiers,levels,data);
+
+        subtitle = "Total of " + minterCount + " minters found in ";
+        subtitle += maxLevel == 1 ? "level " + chartLevel : "network";
         subtitle += " on " + Utilities.DateFormatShort(tableTime);
         return dataset;
     }
@@ -497,7 +683,7 @@ public class PieChart
         p.setOutlineStroke(null);
         p.setLabelGenerator(new StandardPieSectionLabelGenerator("{0} ({2})",
                 NumberFormat.getNumberInstance(),
-                new DecimalFormat("0.00%")));
+                new DecimalFormat("0.0%")));
         p.setMaximumLabelWidth(0.20);
         return chart;
     }

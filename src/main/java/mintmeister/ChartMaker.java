@@ -43,7 +43,6 @@ import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.chart.ui.RectangleAnchor;
-import org.jfree.data.time.Day;
 import org.jfree.data.time.Hour;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.Week;
@@ -875,6 +874,10 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
             case "All registered names":
                 dataset1 = createAllNamesDataset(resultSets.get(0));
                 break;
+            case "Total active minters":
+            case "Active minters":
+                dataset1 = createActiveMintersDataset(resultSets.get(0));
+                break;
             default:
                 dataset1 = createLineChartDataset(resultSets.get(0));
                 break;
@@ -997,8 +1000,44 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
                 if(value == null)
                     continue;
                 
+                //used to skip adding 0 values for level_ups line chart, making the chart more readable
                 if(column.equals("LEVEL_UPS") && (int)value == 0)
                     continue;
+                
+                series.addOrUpdate(time, value);
+            }
+            TimeSeriesCollection dataset = new TimeSeriesCollection();
+            dataset.addSeries(series);
+            datasets.add(dataset);      
+            
+            return dataset;            
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        return null;        
+    } 
+    
+    private XYDataset createActiveMintersDataset(ResultSet resultSet)
+    {        
+        try
+        {       
+            resultSet.beforeFirst();
+            String column = resultSet.getMetaData().getColumnName(2);
+            //due to minters_count key being called count in levels_data 
+            //(changing this will cause backwards compatibility issues)
+            String countString = resultSet.getMetaData().getColumnName(3);
+            TimeSeries series = new TimeSeries(column);
+            RegularTimePeriod time;
+            Number value;  
+            while(resultSet.next())
+            {   
+                //using second to make sure addOrUpdate will insert if time interval is smaller than 1 minute
+                time = new Second(new Date(resultSet.getLong("timestamp")));
+                int minterCount = resultSet.getInt(countString);
+                int inactive = resultSet.getInt("inactive");
+                value = minterCount - inactive; // (Number) resultSet.getObject(column);       
                 
                 series.addOrUpdate(time, value);
             }

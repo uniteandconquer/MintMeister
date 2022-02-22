@@ -1126,9 +1126,18 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode balanceDistNode = 
                         new DefaultMutableTreeNode(new NodeInfo("Balance distribution", "arrow-right.png"));
                 allLevelsNode.add(balanceDistNode);
+                DefaultMutableTreeNode activesNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("Active minters distribution", "arrow-right.png"));
+                allLevelsNode.add(activesNode);
                 DefaultMutableTreeNode inactivesNode = 
                         new DefaultMutableTreeNode(new NodeInfo("Inactive minters distribution", "arrow-right.png"));
                 allLevelsNode.add(inactivesNode);
+                DefaultMutableTreeNode activesRatio = 
+                        new DefaultMutableTreeNode(new NodeInfo("Active/inactive ratio", "arrow-right.png"));
+                allLevelsNode.add(activesRatio);
+                DefaultMutableTreeNode activesRatioNetwork = 
+                        new DefaultMutableTreeNode(new NodeInfo("Active/inactive ratio network", "arrow-right.png"));
+                allLevelsNode.add(activesRatioNetwork);
                 
                 selectedNode = bphTotalNode;
                 
@@ -1144,6 +1153,9 @@ public class MintingMonitor extends javax.swing.JPanel
                     namesNetworkNode = 
                             new DefaultMutableTreeNode(new NodeInfo("Registered names", "arrow-right.png"));
                     levelNode.add(namesNetworkNode);
+                     activesRatio = 
+                        new DefaultMutableTreeNode(new NodeInfo("Active/inactive ratio", "arrow-right.png"));
+                    levelNode.add(activesRatio);
                     
                     //no level up for level 10
                     if(i2 == 10)
@@ -1160,6 +1172,12 @@ public class MintingMonitor extends javax.swing.JPanel
                 DefaultMutableTreeNode mintersCountLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Minters count", "arrow-right.png"));
                 allLevelsNode.add(mintersCountLine);
+                DefaultMutableTreeNode activesNodes = 
+                        new DefaultMutableTreeNode(new NodeInfo("Total active minters", "arrow-right.png"));
+                allLevelsNode.add(activesNodes);        
+                DefaultMutableTreeNode inactivesNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("Total inactive minters", "arrow-right.png"));
+                allLevelsNode.add(inactivesNode);      
                 DefaultMutableTreeNode allRegNamesNode = 
                         new DefaultMutableTreeNode(new NodeInfo("All registered names", "arrow-right.png"));
                 allLevelsNode.add(allRegNamesNode);
@@ -1183,10 +1201,7 @@ public class MintingMonitor extends javax.swing.JPanel
                 allLevelsNode.add(levelUpsLine);    
                 DefaultMutableTreeNode levelUpsBar = 
                         new DefaultMutableTreeNode(new NodeInfo("Level-ups bar chart", "arrow-right.png"));
-                allLevelsNode.add(levelUpsBar);     
-                DefaultMutableTreeNode inactivesNode = 
-                        new DefaultMutableTreeNode(new NodeInfo("Total inactive minters", "arrow-right.png"));
-                allLevelsNode.add(inactivesNode);      
+                allLevelsNode.add(levelUpsBar);  
                 
                 for(int i2 = 0; i2 <= maxLevel; i2++)
                 {                
@@ -1197,6 +1212,12 @@ public class MintingMonitor extends javax.swing.JPanel
                     mintersCountLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Minters count", "arrow-right.png"));
                     levelNode.add(mintersCountLine);
+                    activesNodes = 
+                            new DefaultMutableTreeNode(new NodeInfo("Active minters", "arrow-right.png"));
+                    levelNode.add(activesNodes);
+                    inactivesNode = 
+                            new DefaultMutableTreeNode(new NodeInfo("Inactive minters", "arrow-right.png"));
+                    levelNode.add(inactivesNode);
                     regNamesCountLine = 
                             new DefaultMutableTreeNode(new NodeInfo("Registered names count (minters)", "arrow-right.png"));
                     levelNode.add(regNamesCountLine);
@@ -1212,9 +1233,6 @@ public class MintingMonitor extends javax.swing.JPanel
                     totalBalanceLine = 
                         new DefaultMutableTreeNode(new NodeInfo("Total balance minters in level", "arrow-right.png"));
                     levelNode.add(totalBalanceLine);
-                    inactivesNode = 
-                            new DefaultMutableTreeNode(new NodeInfo("Inactive minters", "arrow-right.png"));
-                    levelNode.add(inactivesNode);
                 }
             }
         }       
@@ -1317,6 +1335,10 @@ public class MintingMonitor extends javax.swing.JPanel
                         return statement.executeQuery("select timestamp,total_balance from minters_data");
                 case "Total balance minters in level":
                         return statement.executeQuery("select timestamp,balance from levels_data where level=" + level);
+                case "Total active minters":
+                        return statement.executeQuery("select timestamp,inactive,minters_count from minters_data");
+                case "Active minters":
+                        return statement.executeQuery("select timestamp,inactive,count from levels_data where level=" + level);
                 case "Total inactive minters":
                         return statement.executeQuery("select timestamp,inactive from minters_data");
                 case "Inactive minters":
