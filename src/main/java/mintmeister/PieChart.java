@@ -250,7 +250,7 @@ public class PieChart
             String[] tiers = new String[maxLevel];
             for(int i = 0; i < tiers.length;i++)
             {
-                tiers[i] = "Level " + i + " inactives";
+                tiers[i] = "Level " + i + " actives";
             }
 
             double[][] data = new double[maxLevel][1]; //[tier][level]
