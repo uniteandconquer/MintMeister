@@ -481,6 +481,10 @@ public class Utilities
             case "Total blocks minted":
             case "Level-ups line chart":
             case "All registered names":
+            case "Total active minters":
+            case "Total inactive minters":
+            case "Active minters":
+            case "Inactive minters":
                 returnString = String.format("%s", NumberFormat.getIntegerInstance().format((int) value));
                 break;
             case "moving average":
