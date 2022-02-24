@@ -54,6 +54,7 @@ public class MintingMonitor extends javax.swing.JPanel
     private int[] groups;
     int iterations;
     long startTime;
+    int index_adj;
     private DatabaseManager dbManager;
     private String orderKey = "desc";
     private long nextIteration;
@@ -135,9 +136,10 @@ public class MintingMonitor extends javax.swing.JPanel
                 int rank_all_time = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 5);
                 int level = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 3);
                 int bph = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 2);
-                int minted = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 9);
-                String levelTime = mintersTable.getValueAt(mintersTable.getSelectedRow(),12).toString();
-                String levelDuration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 13).toString();
+                int minted = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 9);                
+                
+                String levelTime = mintersTable.getValueAt(mintersTable.getSelectedRow(),12 + index_adj).toString();
+                String levelDuration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 13 + index_adj).toString();
                 if(level < 10)
                 {
                     int blocksLeft = levels[level + 1] - (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 11);
@@ -276,6 +278,14 @@ public class MintingMonitor extends javax.swing.JPanel
                     Utilities.DateFormatShort(end),
                     Utilities.MillisToDayHrMin(duration),
                     mintersTable.getRowCount()));
+              
+            //minted_adj column was added later to the minters table, it's preferred that its columns location is next to
+            //the other blocks minted columns. Older minter files will have the column at the end, we need to adjust the
+            //index of the level duration and level timestamp columns for looking up those values for the minterInfoLabel
+            //when selecting the minter in the mintersTable. 
+            index_adj = 1;
+            if(mintersTable.getColumnName(mintersTable.getColumnCount() - 1).equals("MINTED_ADJ"))
+                index_adj = 0;
         }
         catch(Exception e)
         {
@@ -1513,7 +1523,7 @@ public class MintingMonitor extends javax.swing.JPanel
         dataTimeLabel1 = new javax.swing.JLabel();
         mintersTableScrollpane = new javax.swing.JScrollPane();
         mintersTable = new javax.swing.JTable();
-        mintersTable.getTableHeader().setReorderingAllowed(false);
+        mintersTable.getTableHeader().setReorderingAllowed(true);
         chartsTab = new javax.swing.JSplitPane();
         chartPanelPlaceHolder = new javax.swing.JPanel();
         chartsTreeSplitPane = new javax.swing.JSplitPane();
