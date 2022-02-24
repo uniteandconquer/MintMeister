@@ -1523,7 +1523,7 @@ public class MintingMonitor extends javax.swing.JPanel
         dataTimeLabel1 = new javax.swing.JLabel();
         mintersTableScrollpane = new javax.swing.JScrollPane();
         mintersTable = new javax.swing.JTable();
-        mintersTable.getTableHeader().setReorderingAllowed(true);
+        mintersTable.getTableHeader().setReorderingAllowed(false);
         chartsTab = new javax.swing.JSplitPane();
         chartPanelPlaceHolder = new javax.swing.JPanel();
         chartsTreeSplitPane = new javax.swing.JSplitPane();
