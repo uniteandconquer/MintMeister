@@ -123,6 +123,21 @@ public class Utilities
     {
         return NumberFormat.getNumberInstance().format(number);
     }
+     
+     /**Filenames in the Operating System can not have the same case insensitive name
+     * @param array
+     * @param value
+     * @return */
+     public static boolean containsIgnoreCase(Object[] array, String value)
+     {
+         for(Object obj : array)    
+         {
+             if(obj.toString().equalsIgnoreCase(value))
+                 return true;
+         }
+         
+         return false;
+     }
     
     public static boolean isNavKeyEvent(KeyEvent evt)
     {

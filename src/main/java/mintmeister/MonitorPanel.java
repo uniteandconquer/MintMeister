@@ -288,6 +288,8 @@ public class MonitorPanel extends javax.swing.JPanel
                 }
                 else
                 {
+                    lastPingTime = lastPingTime == 0 ? System.currentTimeMillis() : lastPingTime;
+                    
                     //show last online (if was online)
                     nodeStatusString = lastOnlineTime == 0 ? Main.BUNDLE.getString("lastRefresh") + Utilities.TimeFormat(lastPingTime)
                             : Main.BUNDLE.getString("lastOnline") + Utilities.DateFormat(lastOnlineTime);
