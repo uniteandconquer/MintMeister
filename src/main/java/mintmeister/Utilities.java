@@ -4,9 +4,11 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyEvent;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;    
+import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.ConnectException;
@@ -53,6 +55,7 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.swing.table.DefaultTableModel;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class Utilities
 {
@@ -407,7 +410,7 @@ public class Utilities
             BackgroundService.AppendLog(e);
         }
     } 
-    public static DefaultTableModel BuildTableModel(String table,ResultSet rs)
+    public static DefaultTableModel BuildTableModel(String table,ResultSet rs, boolean isEditable)
     {
         try
         {            
@@ -443,19 +446,31 @@ public class Utilities
                 {
                     if(rs.getMetaData().getColumnName(columnIndex).contains("TIMESTAMP"))// if(columnIndex == timeStampIndex)
                         vector.add(DateFormatShort((long) rs.getObject(columnIndex)));
-                    else if(rs.getMetaData().getColumnName(columnIndex).contains("UPTIME") && !table.equals("NODE_PREFS")) //if (columnIndex == uptimeIndex)
+                    else if(rs.getMetaData().getColumnName(columnIndex).equals("DURATION")) 
                         vector.add(MillisToDayHrMinShort((long) rs.getObject(columnIndex)));
-                    else if(rs.getMetaData().getColumnName(columnIndex).equals("DURATION")) //if (columnIndex == uptimeIndex)
-                        vector.add(MillisToDayHrMinShort((long) rs.getObject(columnIndex)));
-                    else if(rs.getMetaData().getColumnName(columnIndex).equals("LEVEL_DURATION")) //if (columnIndex == uptimeIndex)
-                        vector.add(MillisToDayHrMinMinter((long) rs.getObject(columnIndex)));
+                    else if(rs.getMetaData().getColumnName(columnIndex).equals("SCANNED") && rs.getObject(columnIndex) != null) 
+                        vector.add(DateFormatShort((long) rs.getObject(columnIndex)));
                     else
                         vector.add(rs.getObject(columnIndex));
                 }
                 data.add(vector);
             }
 
-            return new DefaultTableModel(data, columnNames);
+            if(!isEditable)
+            {
+                DefaultTableModel tableModel = new DefaultTableModel(data, columnNames)
+                {
+                    @Override
+                    public boolean isCellEditable(int row, int column)
+                    {
+                        //all cells false
+                        return false;
+                    }
+                };
+                return tableModel;
+            }
+            else
+                return new DefaultTableModel(data, columnNames);
         }
         catch (SQLException e)
         {
@@ -500,6 +515,7 @@ public class Utilities
             case "Total inactive minters":
             case "Active minters":
             case "Inactive minters":
+            case "Average blocks/hour":
                 returnString = String.format("%s", NumberFormat.getIntegerInstance().format((int) value));
                 break;
             case "moving average":
@@ -516,7 +532,6 @@ public class Utilities
             case "ram_usage":
             case "blockchainsize":
             case "qortal_ram":
-            case "Average blocks/hour":
                 returnString = String.format("%,.2fMb", value);
                 break;   
             case "ltc_to_qort_price":
@@ -746,6 +761,76 @@ public class Utilities
             }
         }
         return length;
+    }
+    
+    public static Object getSetting(String key,String filename)
+    {
+        File settingsFile = new File(System.getProperty("user.dir") + "/bin/" + filename);
+        if(!settingsFile.exists())
+            return null;
+        
+        try
+        {
+            String jsonString = Files.readString(settingsFile.toPath());
+            if(jsonString != null)
+            {     
+                JSONObject jsonObject = new JSONObject(jsonString);
+                if(jsonObject.has(key))
+                    return jsonObject.get(key);
+                else
+                    return null; 
+            }                
+        }
+        catch (IOException | JSONException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;
+    }
+    
+    public static void updateSetting(String key, String value,String filename)
+    {        
+        File settingsFile = new File(System.getProperty("user.dir") + "/bin/" + filename);
+        if(!settingsFile.exists())
+            createSettingsFile(settingsFile);
+        
+        try
+        {
+            String jsonString = Files.readString(settingsFile.toPath());
+            if(jsonString != null)
+            {     
+                JSONObject jsonObject = new JSONObject(jsonString);
+                jsonObject.put(key, value);
+                
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(settingsFile)))
+                {
+                    writer.write(jsonObject.toString(1));
+                    writer.close();
+                }     
+            }                
+            }
+            catch (IOException | JSONException e)
+            {
+                BackgroundService.AppendLog(e);
+            }
+    }   
+    
+    public static void createSettingsFile(File settingsFile)
+    {
+        try
+        {                    
+            JSONObject jsonObject = new JSONObject();
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(settingsFile)))
+            {
+                writer.write(jsonObject.toString(1));
+                writer.close();
+            }                   
+        }
+        catch (IOException | JSONException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
     }
     
     public static void ZipFiles(ArrayList<File> srcFiles, File zipFile) throws IOException

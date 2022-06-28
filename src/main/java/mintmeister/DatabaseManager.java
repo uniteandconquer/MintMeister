@@ -107,6 +107,12 @@ public class DatabaseManager
         ExecuteUpdate(sqlString,c);       
     }    
     
+    public void ChangeValue(String table, String item,  String itemValue, String condition,  Connection c)
+    { 
+        String sqlString = String.format("update %s set %s=%s where %s", table,item,itemValue,condition); 
+        ExecuteUpdate(sqlString,c);       
+    }   
+    
     public void ChangeValues(String table, ArrayList<KeyItemPair>pairs,Connection c)
     {
         pairs.stream().map(pair ->
@@ -205,7 +211,54 @@ public class DatabaseManager
         }
         
         return null;
-    }        
+    }    
+    
+        
+    //Gets all the items in the specified column
+    public ArrayList<Object> GetColumn(String table, String column,String condition, String orderKey,String order, Connection c)
+    {
+         try 
+        {        
+            String orderString = orderKey.isEmpty() ? orderKey : " order by " + orderKey + " " + order;
+            ArrayList items = new ArrayList<String>();            
+            String sqlString = "select " + column + "  from " + table + condition + orderString;
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(sqlString);
+            while(resultSet.next())
+                items.add(resultSet.getObject(1));            
+            
+            return items;
+        } 
+        catch (SQLException e) 
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;
+    }
+    
+    //Gets all the items in the specified column
+    public ArrayList<Object> GetColumn(String table, String column, String orderKey,String order, int limit, Connection c)
+    {
+         try 
+        {        
+            String orderString = orderKey.isEmpty() ? orderKey : " order by " + orderKey + " " + order + " limit " + limit;
+            ArrayList items = new ArrayList<String>();            
+            String sqlString = "select " + column + "  from " + table + orderString;
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(sqlString);
+            while(resultSet.next())
+                items.add(resultSet.getObject(1));            
+            
+            return items;
+        } 
+        catch (SQLException e) 
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;
+    }       
     
     public ArrayList<Object> GetRow(String table, String key, String keyValue,Connection c)
     {
@@ -231,6 +284,22 @@ public class DatabaseManager
         
         return null;
     }  
+    
+    public int getRowCount(String table, Connection c)
+    {
+        try
+        {
+            Statement statement = c.createStatement();
+            ResultSet resultSet = statement.executeQuery("select count(*) from " + table);
+            resultSet.first(); //move cursor to first (result will only have 1 position)
+            return resultSet.getInt(1);            
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        return 0;
+    }   
     
     /**
      * Gets the specified item at the first row of the specified table,<br>
@@ -261,6 +330,48 @@ public class DatabaseManager
         }
     }    
     
+    public Object GetFirstItem(String table,String item,String orderKey, String order,Connection c)
+    {        
+         try 
+        {   
+            Object value;
+            String sqlString = String.format("select %s from %s order by %s %s limit 1", item, table,orderKey,order);
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(sqlString);
+            resultSet.first();
+            value = resultSet.getObject(1);      
+                 
+            return value;
+        } 
+        catch (SQLException e) 
+        {
+            BackgroundService.AppendLog(e);
+            BackgroundService.AppendLog(String.format("Item '%s' returned null for table '%s'", item,table));
+            return null;
+        }
+    }   
+    
+     public Object GetFirstItem(String table,String item,String filterKey,String orderKey, String order,Connection c)
+    {        
+         try 
+        {   
+            Object value;
+            String sqlString = String.format("select %s from %s %s order by %s %s limit 1", item, table,filterKey,orderKey,order);
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(sqlString);
+            resultSet.first();
+            value = resultSet.getObject(1);      
+                 
+            return value;
+        } 
+        catch (SQLException e) 
+        {
+            BackgroundService.AppendLog(e);
+            BackgroundService.AppendLog(String.format("Item '%s' returned null for table '%s'", item,table));
+            return null;
+        }
+    }  
+    
     public Object GetItemValue(String table,String item,String key, String keyValue,Connection c)
     {        
          try 
@@ -284,7 +395,49 @@ public class DatabaseManager
         return null;
     }    
     
-     public void FillJTable(String table,String whereKey, JTable jTable, Connection c)
+    public Object GetItemValue(String table,String item,String condition,Connection c)
+    {        
+         try 
+        {   
+            Object value;
+            String sqlString = String.format("select %s from %s %s", item, table,condition);
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(sqlString);
+            resultSet.first();
+            value = resultSet.getObject(1);            
+            
+            return value;
+        } 
+        catch (SQLException e) 
+        {
+            //Since the methods calling this function (get account ID by name) sometimes expect a null return value, 
+            //we don't want to print the stacktrace to the log everytime this exception is thrown
+            BackgroundService.AppendLog(e.toString() + " @ GetItemValue() (ignore if thrown for charttree selection)");
+        }
+        
+        return null;
+    }  
+    
+    public Object tryGetItemValue(String table,String item,String key, String keyValue,Connection c)
+    {        
+         try 
+        {   
+            Object value;
+            String sqlString = String.format("select %s from %s where %s=%s", item, table, key, keyValue);
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(sqlString);
+            resultSet.first();
+            value = resultSet.getObject(1);            
+            
+            return value;
+        } 
+        catch (SQLException e) 
+        {
+            return null;
+        }
+    }    
+    
+     public void FillJTable(String table,String whereKey, JTable jTable, boolean isEditable,Connection c)
     {
         try 
         {      
@@ -292,7 +445,7 @@ public class DatabaseManager
             String query = String.format("select * from %s %s order by %s asc", table,whereKey,header);
             Statement stmt = c.createStatement();
             ResultSet resultSet = stmt.executeQuery(query);    
-            jTable.setModel(Utilities.BuildTableModel(table,resultSet));
+            jTable.setModel(Utilities.BuildTableModel(table,resultSet,isEditable));
         } 
         catch (SQLException e) 
         {
@@ -300,7 +453,7 @@ public class DatabaseManager
         }        
     }  
      
-    public void FillJTableOrder(String table, String whereKey, String order, JTable jTable, Connection c)
+    public void FillJTableOrder(String table, String whereKey, String order, JTable jTable, boolean isEditable, Connection c)
     {
         try
         {
@@ -308,13 +461,29 @@ public class DatabaseManager
             String query = String.format("select * from %s order by %s %s", table, whereKey, order); //,header);
             Statement stmt = c.createStatement();
             ResultSet resultSet = stmt.executeQuery(query);
-            jTable.setModel(Utilities.BuildTableModel(table, resultSet));
+            jTable.setModel(Utilities.BuildTableModel(table, resultSet,isEditable));
         }
         catch (SQLException e)
         {
             BackgroundService.AppendLog(e);
         }
-    }      
+    }         
+    
+    public void FillJTableOrder(String table, String whereKey, String order,int limit, JTable jTable, boolean isEditable,Connection c)
+    {
+        try
+        {
+//            String header = GetColumnHeaders(table, c).get(0); //will be "ID" or "Timestamp"  
+            String query = String.format("select * from %s order by %s %s limit %d", table, whereKey, order,limit); //,header);
+            Statement stmt = c.createStatement();
+            ResultSet resultSet = stmt.executeQuery(query);
+            jTable.setModel(Utilities.BuildTableModel(table, resultSet,isEditable));
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+    } 
     
     public void ExecuteUpdate(String statementString, Connection c)
     {

@@ -2,6 +2,7 @@ package mintmeister;
 
 import java.awt.Dimension;
 import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.ConnectException;
@@ -25,7 +26,9 @@ public class NamesPanel extends javax.swing.JPanel
     private JSONArray jSONArray;
     private String jsonString;
     private GUI gui;
-    private String orderKey = "desc";
+    private String orderKey = "desc";;
+    ArrayList<Integer> searchResults = new ArrayList<>();
+    int searchIndex;
     
     public NamesPanel()
     {
@@ -251,7 +254,7 @@ public class NamesPanel extends javax.swing.JPanel
     {
         try(Connection connection = ConnectionDB.getConnection("minters"))
         {
-            dbManager.FillJTableOrder("names", header, orderKey, namesTable, connection);
+            dbManager.FillJTableOrder("names", header, orderKey, namesTable,true,connection);
         }
         catch (Exception ex)
         {
@@ -260,77 +263,83 @@ public class NamesPanel extends javax.swing.JPanel
         
         namesStatusLabel.setText("Total registered names found: " + namesTable.getRowCount());
     }
-    
-     private void searchForName()
+     
+    private void searchForName()
     {
-         if(searchInput.getText().isBlank())
+        searchInfoLabel.setText("Search for name or address");
+        
+        if(searchInput.getText().isBlank())
             return;
-         
-        String searchTerm = searchInput.getText();
-        int rowIndex = -1;
+        
+        searchResults.clear();
+        searchIndex = 0;
+        
+        int nameColumn = 1;
+        int addressColumn = 2;
+        
+        String address = searchInput.getText();
         
         //first search for name
         for(int i = 0; i < namesTable.getRowCount(); i++)
         {
-            String rowEntry = namesTable.getValueAt(i, 1).toString();
+            String rowEntry = namesTable.getValueAt(i, nameColumn).toString();
             if(caseCheckbox.isSelected())
             {
-                if(rowEntry.contains(searchTerm))
-                    rowIndex = i;
-                //make sure exact name has preference over name containing term
-                if(rowEntry.equals(searchTerm))
-                {
-                    rowIndex = i;
-                    break;
-                }
+                if(rowEntry.contains(address))
+                    searchResults.add(i);
             }
             else
-            {               
-                if(rowEntry.toLowerCase().contains(searchTerm.toLowerCase()))
-                    rowIndex = i;
-                //make sure exact name has preference over name containing term
-                if(rowEntry.toLowerCase().equals(searchTerm.toLowerCase()))
-                {
-                    rowIndex = i;
-                    break;
-                }
+            {                
+                if(rowEntry.toLowerCase().contains(address.toLowerCase()))
+                    searchResults.add(i);
             }                
-        }
-        if(rowIndex == -1)
+        }    
+        
+        for (int i = 0; i < namesTable.getRowCount(); i++)
         {
-            //search for address if name not found
-            for(int i = 0; i < namesTable.getRowCount(); i++)
+            String rowEntry = namesTable.getValueAt(i, addressColumn).toString();
+
+            if (caseCheckbox.isSelected())
             {
-                String rowEntry = namesTable.getValueAt(i, 2).toString();
-                
-                if(caseCheckbox.isSelected())
-                {
-                    if(rowEntry.contains(searchTerm))
-                    {
-                        rowIndex = i;
-                        break;
-                    }
-                }
-                else
-                {                
-                    if(rowEntry.toLowerCase().contains(searchTerm.toLowerCase()))
-                    {
-                        rowIndex = i;
-                        break;
-                    }
-                }          
+                if (rowEntry.contains(address))
+                    searchResults.add(i);
+            }
+            else
+            {
+                if (rowEntry.toLowerCase().contains(address.toLowerCase()))
+                    searchResults.add(i);
             }
         }
         
-        if(rowIndex == -1)
+        if(searchResults.isEmpty()) 
         {
-            namesStatusLabel.setText("Name or address containing '" + searchInput.getText() + "' not found");
-            selectedNameLabel.setText("No name selected");
+            searchIndex = 0;
+            searchButton.setText("Search"); 
+            searchInfoLabel.setText("Name or address containing '" + searchInput.getText() + "' not found");
+            selectedNameLabel.setText("No name selected");        
             namesTable.clearSelection();
             return;
         }
+        else
+        {     
+            searchIndex = 0; 
+            if(searchResults.size() == 1)
+                searchButton.setText("Search");
+            else
+                searchButton.setText("Show next");
+        }
         
-        namesStatusLabel.setText("Total registered names found: " + namesTable.getRowCount());
+        goToSearchResult(searchResults.get(0));        
+    }
+     
+    private void goToSearchResult(int rowIndex)
+    {    
+        if(searchResults.size() == 1)
+            searchInfoLabel.setText("Found 1 result for " +Utilities.SingleQuotedString(searchInput.getText()));  
+        else
+            searchInfoLabel.setText(String.format("Showing result %d out of %d for '%s'", 
+                    searchIndex + 1,searchResults.size(),searchInput.getText()));        
+        
         namesTable.setRowSelectionInterval(rowIndex, rowIndex);
         
         //scroll as close to middle as possible
@@ -348,7 +357,7 @@ public class NamesPanel extends javax.swing.JPanel
         if(rowIndex <= visibleRows / 2)
             scrollToRow = 0;
         
-        namesTable.scrollRectToVisible(new Rectangle(namesTable.getCellRect(scrollToRow, 0, true)));        
+        namesTable.scrollRectToVisible(new Rectangle(namesTable.getCellRect(scrollToRow, 0, true)));          
     }
     
     @SuppressWarnings("unchecked")
@@ -372,7 +381,7 @@ public class NamesPanel extends javax.swing.JPanel
         jSeparator3 = new javax.swing.JSeparator();
         selectBenificiariesButton = new javax.swing.JButton();
         searchButton = new javax.swing.JButton();
-        jLabel3 = new javax.swing.JLabel();
+        searchInfoLabel = new javax.swing.JLabel();
         searchInput = new javax.swing.JTextField();
         caseCheckbox = new javax.swing.JCheckBox();
 
@@ -486,14 +495,15 @@ public class NamesPanel extends javax.swing.JPanel
         gridBagConstraints.insets = new java.awt.Insets(0, 400, 0, 0);
         namesMenuPanel.add(searchButton, gridBagConstraints);
 
-        jLabel3.setText("Search for name or address");
-        jLabel3.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        searchInfoLabel.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        searchInfoLabel.setText("Search for name or address");
+        searchInfoLabel.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 1;
         gridBagConstraints.gridwidth = 3;
-        gridBagConstraints.insets = new java.awt.Insets(0, 0, 5, 0);
-        namesMenuPanel.add(jLabel3, gridBagConstraints);
+        gridBagConstraints.insets = new java.awt.Insets(5, 0, 5, 0);
+        namesMenuPanel.add(searchInfoLabel, gridBagConstraints);
 
         searchInput.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         searchInput.setMinimumSize(new java.awt.Dimension(300, 27));
@@ -576,7 +586,15 @@ public class NamesPanel extends javax.swing.JPanel
 
     private void searchButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_searchButtonActionPerformed
     {//GEN-HEADEREND:event_searchButtonActionPerformed
-        searchForName();
+         if(searchResults.isEmpty())
+        {
+            searchForName();
+        }
+        else
+        {
+            searchIndex = searchIndex + 1 > searchResults.size() - 1 ? 0 : searchIndex + 1;
+            goToSearchResult(searchResults.get(searchIndex));
+        }   
     }//GEN-LAST:event_searchButtonActionPerformed
 
     private void searchInputFocusGained(java.awt.event.FocusEvent evt)//GEN-FIRST:event_searchInputFocusGained
@@ -586,13 +604,21 @@ public class NamesPanel extends javax.swing.JPanel
 
     private void searchInputKeyReleased(java.awt.event.KeyEvent evt)//GEN-FIRST:event_searchInputKeyReleased
     {//GEN-HEADEREND:event_searchInputKeyReleased
-        searchForName();
+         if(searchInput.getText().isBlank())
+            searchButton.setText("Search");
+        
+        if(evt.getKeyCode() == KeyEvent.VK_ENTER && !searchResults.isEmpty())
+        {
+            searchIndex = searchIndex + 1 > searchResults.size() - 1 ? 0 : searchIndex + 1;
+            goToSearchResult(searchResults.get(searchIndex));
+        }  
+        else
+            searchForName();
     }//GEN-LAST:event_searchInputKeyReleased
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox caseCheckbox;
-    private javax.swing.JLabel jLabel3;
     private javax.swing.JSeparator jSeparator3;
     private javax.swing.JPanel namesMenuPanel;
     private javax.swing.JScrollPane namesMenuScrollpane;
@@ -602,6 +628,7 @@ public class NamesPanel extends javax.swing.JPanel
     private javax.swing.JSplitPane namesTab;
     private javax.swing.JTable namesTable;
     private javax.swing.JButton searchButton;
+    private javax.swing.JLabel searchInfoLabel;
     private javax.swing.JTextField searchInput;
     private javax.swing.JButton selectBenificiariesButton;
     private javax.swing.JLabel selectedNameLabel;

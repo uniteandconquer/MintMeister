@@ -31,6 +31,7 @@ public class GUI extends javax.swing.JFrame
     protected final BackgroundService backgroundService;
     protected final DatabaseManager dbManager;    
     private String currentCard = "mintingMonitor";   
+    private boolean sponsorDialogShown;
     
     public GUI(BackgroundService bgs)
     {              
@@ -43,6 +44,7 @@ public class GUI extends javax.swing.JFrame
         initFrame();    
         InitTaskbar();  
         checkLoginCount();
+        mintingMonitor.checkForAutoStart();
         System.gc();           
     }//end constructor
     
@@ -251,8 +253,13 @@ public class GUI extends javax.swing.JFrame
         walletsButton = new javax.swing.JButton();
         remindLaterButton = new javax.swing.JButton();
         dismissButton = new javax.swing.JButton();
+        sponsorStartupDialog = new javax.swing.JDialog();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        jTextArea1 = new javax.swing.JTextArea();
+        okButton = new javax.swing.JButton();
         mainToolbar = new javax.swing.JToolBar();
         mintingMonitorButton = new javax.swing.JButton();
+        sponsorsButton = new javax.swing.JButton();
         namesButton = new javax.swing.JButton();
         nodeMonitorButton = new javax.swing.JButton();
         appearanceButton = new javax.swing.JButton();
@@ -260,6 +267,8 @@ public class GUI extends javax.swing.JFrame
         exitButton = new javax.swing.JButton();
         mainPanel = new javax.swing.JPanel();
         mintingMonitor = new mintmeister.MintingMonitor();
+        sponsorsPanel = new mintmeister.SponsorsPanel();
+        sponsorsPanel.initialise(this,dbManager);
         namesPanel = new mintmeister.NamesPanel();
         namesPanel.initialise(this);
         nodeMonitorPanel = new mintmeister.MonitorPanel();
@@ -367,7 +376,7 @@ public class GUI extends javax.swing.JFrame
         donatePanel.add(remindLaterButton, gridBagConstraints);
 
         dismissButton.setFont(new java.awt.Font("Bahnschrift", 0, 12)); // NOI18N
-        dismissButton.setText("<html><div style='text-align: center;'>Not interested<br/>Don't show again</div><html>");
+        dismissButton.setText("<html><div style='text-align: center;'>No thanks<br/>Don't show again</div><html>");
         dismissButton.setPreferredSize(new java.awt.Dimension(150, 45));
         dismissButton.addActionListener(new java.awt.event.ActionListener()
         {
@@ -396,6 +405,40 @@ public class GUI extends javax.swing.JFrame
                 .addComponent(donatePanel, javax.swing.GroupLayout.DEFAULT_SIZE, 433, Short.MAX_VALUE))
         );
 
+        sponsorStartupDialog.setTitle("Important note");
+        sponsorStartupDialog.setModal(true);
+        sponsorStartupDialog.getContentPane().setLayout(new java.awt.GridBagLayout());
+
+        jTextArea1.setEditable(false);
+        jTextArea1.setColumns(20);
+        jTextArea1.setLineWrap(true);
+        jTextArea1.setRows(5);
+        jTextArea1.setText("MintMeister has a newly added functionality: The sponsors panel.\n\nThe sponsors panel has multiple use cases: It can be used by sponsors to track their sponsoring activity and check the progress of their sponsees. It can be used by sponsees to keep track of their progress. It can be used by anyone to gain a better understanding of the larger scale metrics of the sponsoring process. \n\nAnother use case is to provide a tool for those who wish to investigate the behaviours that are indicative of self sponsoring.\n\nMintMeister extracts a lot of data from the Qortal blockchain and analyzes that data, some actions that could be construed as indicative of self sponsorship can be analyzed and flagged. This means that sponsors that exhibit a certain behaviour will be flagged when you request the app to do so.\n\nPlease take note that just because a sponsor is flagged or exhibits a certain behaviour, that does not mean that they are self sponsoring. In order for us to mitigate the threat of self sponsoring, we need to gain a better understanding of it and find out the combined set of behaviours and data points which indicate who the abusers are, that is one of the purposes of this tool. We should however be careful to not needlessly accuse or cause (collateral) damage to the progress and reputation of legitimate sponsors or sponsees.\n\nThis tool is meant as an explorative and educational endeavour, to show the sponsor/sponsee relationships in a visual and concrete manner. Hopefully we can use what we learn here to eliminate the threat of egregious self sponsoring while helping the growth of legitimate minters.\n");
+        jTextArea1.setWrapStyleWord(true);
+        jTextArea1.setMargin(new java.awt.Insets(10, 20, 10, 20));
+        jScrollPane1.setViewportView(jTextArea1);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.weightx = 0.1;
+        gridBagConstraints.weighty = 0.1;
+        sponsorStartupDialog.getContentPane().add(jScrollPane1, gridBagConstraints);
+
+        okButton.setText("OK");
+        okButton.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                okButtonActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
+        gridBagConstraints.insets = new java.awt.Insets(15, 0, 15, 0);
+        sponsorStartupDialog.getContentPane().add(okButton, gridBagConstraints);
+
         setMinimumSize(new java.awt.Dimension(500, 600));
         setPreferredSize(new java.awt.Dimension(900, 650));
         addWindowListener(new java.awt.event.WindowAdapter()
@@ -411,8 +454,7 @@ public class GUI extends javax.swing.JFrame
         mainToolbar.setRollover(true);
 
         mintingMonitorButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/minting_monitor.png"))); // NOI18N
-        java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("i18n/Language"); // NOI18N
-        mintingMonitorButton.setText(bundle.getString("alertsButton")); // NOI18N
+        mintingMonitorButton.setText("Minting monitor");
         mintingMonitorButton.setFocusable(false);
         mintingMonitorButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         mintingMonitorButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
@@ -424,6 +466,20 @@ public class GUI extends javax.swing.JFrame
             }
         });
         mainToolbar.add(mintingMonitorButton);
+
+        sponsorsButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/sponsors.png"))); // NOI18N
+        sponsorsButton.setText("Sponsors");
+        sponsorsButton.setFocusable(false);
+        sponsorsButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        sponsorsButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        sponsorsButton.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                sponsorsButtonActionPerformed(evt);
+            }
+        });
+        mainToolbar.add(sponsorsButton);
 
         namesButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/names.png"))); // NOI18N
         namesButton.setText("Names");
@@ -440,6 +496,7 @@ public class GUI extends javax.swing.JFrame
         mainToolbar.add(namesButton);
 
         nodeMonitorButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/monitor.png"))); // NOI18N
+        java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("i18n/Language"); // NOI18N
         nodeMonitorButton.setText(bundle.getString("nodeMonitorButton")); // NOI18N
         nodeMonitorButton.setToolTipText("Current info on you node's status");
         nodeMonitorButton.setFocusable(false);
@@ -508,6 +565,7 @@ public class GUI extends javax.swing.JFrame
 
             mainPanel.setLayout(new java.awt.CardLayout());
             mainPanel.add(mintingMonitor, "mintingMonitor");
+            mainPanel.add(sponsorsPanel, "sponsorsPanel");
             mainPanel.add(namesPanel, "namesPanel");
             mainPanel.add(nodeMonitorPanel, "monitorPanel");
 
@@ -818,6 +876,49 @@ public class GUI extends javax.swing.JFrame
         }            
     }//GEN-LAST:event_dismissButtonActionPerformed
 
+    private void sponsorsButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_sponsorsButtonActionPerformed
+    {//GEN-HEADEREND:event_sponsorsButtonActionPerformed
+        CardLayout card = (CardLayout) mainPanel.getLayout();
+        currentCard = "sponsorsPanel";
+        card.show(mainPanel, currentCard);
+        if (nodeMonitorPanel.timer != null)
+            nodeMonitorPanel.timer.cancel();  
+              
+        //on slow systems, the dialog may not have been triggered to invisible on leaving the chart
+        mintingMonitor.chartMaker.chartDialog.setVisible(false);
+        
+        //always true on startup
+        if(!sponsorDialogShown)
+        {
+            // fail safe making sure dialog will not be loaded every time the user clicks this button
+            sponsorDialogShown = true;
+            
+            boolean shown;            
+            Object dialogObject = Utilities.getSetting("sponsorDialogShown", "settings.json");            
+            if(dialogObject != null)
+                shown = Boolean.parseBoolean(dialogObject.toString());
+            else
+                shown = false;
+            
+            if(!shown)
+            {
+                Utilities.updateSetting("sponsorDialogShown", "true", "settings.json"); 
+                sponsorStartupDialog.pack();
+                sponsorStartupDialog.setSize(600,525);
+                int x = getX() + ((getWidth() / 2) - (sponsorStartupDialog.getWidth() / 2));
+                int y = getY() + ((getHeight() / 2) - (sponsorStartupDialog.getHeight() / 2));
+                sponsorStartupDialog.setLocation(x, y);
+                sponsorStartupDialog.setVisible(true); 
+            }
+        }            
+    }//GEN-LAST:event_sponsorsButtonActionPerformed
+
+    private void okButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_okButtonActionPerformed
+    {//GEN-HEADEREND:event_okButtonActionPerformed
+        sponsorStartupDialog.setVisible(false);
+        sponsorStartupDialog.dispose();
+    }//GEN-LAST:event_okButtonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton appearanceButton;
@@ -837,9 +938,11 @@ public class GUI extends javax.swing.JFrame
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
+    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JSeparator jSeparator1;
     private javax.swing.JSeparator jSeparator2;
     private javax.swing.JSeparator jSeparator3;
+    private javax.swing.JTextArea jTextArea1;
     private javax.swing.JTextField ltcField;
     protected javax.swing.JPanel mainPanel;
     protected javax.swing.JToolBar mainToolbar;
@@ -849,9 +952,13 @@ public class GUI extends javax.swing.JFrame
     private mintmeister.NamesPanel namesPanel;
     private javax.swing.JButton nodeMonitorButton;
     protected mintmeister.MonitorPanel nodeMonitorPanel;
+    private javax.swing.JButton okButton;
     private javax.swing.JLabel popUpLabel;
     private javax.swing.JTextField qortField;
     private javax.swing.JButton remindLaterButton;
+    private javax.swing.JDialog sponsorStartupDialog;
+    private javax.swing.JButton sponsorsButton;
+    private mintmeister.SponsorsPanel sponsorsPanel;
     private javax.swing.JPanel tipJarPanel;
     private javax.swing.JScrollPane tipJarScrollPane;
     public javax.swing.JDialog trayPopup;

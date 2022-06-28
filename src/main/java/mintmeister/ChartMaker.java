@@ -45,7 +45,10 @@ import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.chart.ui.RectangleAnchor;
+import org.jfree.data.time.Day;
 import org.jfree.data.time.Hour;
+import org.jfree.data.time.Minute;
+import org.jfree.data.time.Month;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.Week;
 import org.jfree.data.time.Year;
@@ -765,11 +768,22 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         return dataset;
     }
     
+    protected JPanel createSponsorshipsChartPanel(ResultSet resultSet,String sponsor,String type)
+    {
+        chartPanel = new ChartPanel(createSponsorshipsBarChart(createSponsorshipsDataset(resultSet,type),sponsor));    
+        chartPanel.setMouseWheelEnabled(true);
+        chartPanel.setRangeZoomable(false);
+        return chartPanel;
+    }
+    
     protected JPanel createMintersLineChartPanel(String title, String levelType, ResultSet resultSet)
     {
         if(title.equals("Level-ups bar chart"))
         {
-            return new ChartPanel(createBarChart(createLevelUpsDataset(resultSet)));
+            chartPanel = new ChartPanel(createBarChart(createLevelUpsDataset(resultSet)));
+            chartPanel.setMouseWheelEnabled(true);
+            chartPanel.setRangeZoomable(false);
+            return chartPanel;
         }
         
         ArrayList<ResultSet> resultSets = new ArrayList<>();
@@ -1165,6 +1179,8 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         axis.setTickMarkPosition(DateTickMarkPosition.MIDDLE);
         axis.setLowerMargin(0.01);
         axis.setUpperMargin(0.01);
+        plot.setDomainPannable(true);
+        plot.getRangeAxis().setStandardTickUnits(NumberAxis.createIntegerTickUnits());
 
         ChartUtils.applyCurrentTheme(chart);
 
@@ -1203,6 +1219,103 @@ public class ChartMaker extends ApplicationFrame implements ChartMouseListener
         
         return null;
 
-    }  
+    }      
+    
+    private static JFreeChart createSponsorshipsBarChart(IntervalXYDataset dataset,String sponsor)
+    {
+        JFreeChart chart = ChartFactory.createXYBarChart(
+                "Sponsorships for " + Utilities.SingleQuotedString(sponsor),
+                "Time period",
+                true,
+                "Count",
+                dataset,
+                PlotOrientation.VERTICAL,
+                true,
+                false,
+                false
+        );
+
+        XYPlot plot = (XYPlot) chart.getPlot();
+        XYBarRenderer renderer = (XYBarRenderer) plot.getRenderer();
+        StandardXYToolTipGenerator generator = new StandardXYToolTipGenerator(
+                "{1} : added {2}", new SimpleDateFormat("hh:mm - MMM dd, yyyy"), new DecimalFormat("0"));             
+        
+        renderer.setDefaultToolTipGenerator(generator);        
+        renderer.setMargin(0.10);
+
+        DateAxis axis = (DateAxis) plot.getDomainAxis();
+        axis.setTickMarkPosition(DateTickMarkPosition.MIDDLE);
+        axis.setLowerMargin(0.01);
+        axis.setUpperMargin(0.01);
+        plot.setDomainPannable(true);
+        plot.getRangeAxis().setStandardTickUnits(NumberAxis.createIntegerTickUnits());
+
+        ChartUtils.applyCurrentTheme(chart);
+
+        return chart;
+    }
+    
+    private IntervalXYDataset createSponsorshipsDataset(ResultSet resultSet, String type)
+    {        
+        try
+        {
+            resultSet.beforeFirst();
+            resultSet.next();
+            TimeSeries series = new TimeSeries("");
+            int sponseesInInterval = 0;
+            
+            RegularTimePeriod lastPeriod =  getPeriodType(type, resultSet.getLong("timestamp_start"));
+            RegularTimePeriod currentPeriod = lastPeriod;
+            
+            while(resultSet.next())
+            {   
+                sponseesInInterval++;
+                currentPeriod = getPeriodType(type, resultSet.getLong("timestamp_start"));
+                
+                if(lastPeriod.equals(currentPeriod))
+                    continue;
+                
+                series.addOrUpdate(currentPeriod, sponseesInInterval);
+                lastPeriod = currentPeriod;
+                sponseesInInterval = 0;
+            }
+            
+            //last week could have been skipped in while loop
+            series.addOrUpdate(currentPeriod, sponseesInInterval);
+            
+            TimeSeriesCollection dataset = new TimeSeriesCollection();
+            dataset.addSeries(series);  
+            
+            return dataset;            
+
+        }
+        catch (SQLException e)
+        {
+            BackgroundService.AppendLog(e);
+        }
+        
+        return null;
+
+    }
+    
+    private RegularTimePeriod getPeriodType(String type, long timestamp)
+    {
+        switch(type)
+        {
+            case "minute":
+                return  new Minute(new Date(timestamp));
+            case "hour":
+                return new Hour(new Date(timestamp));
+            case "day":
+                return new Day(new Date(timestamp));
+            case "week":
+                return new Week(new Date(timestamp));
+            case "month":
+                return new Month(new Date(timestamp));
+            default:
+                return new Week(new Date(timestamp));                
+        }
+    }
     
 }
+
