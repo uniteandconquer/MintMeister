@@ -108,6 +108,9 @@ public class SponsorsPanel extends javax.swing.JPanel
             
             toggleSponsorButtons(sponsorsTable.getSelectedRow() >= 0);
             
+            if(sponsorsTable.getSelectedRow() == -1)
+                fillSponseesTable("");
+            
             sponsorsTableSelected();
         });  
         
@@ -3344,10 +3347,10 @@ private void extractRewardShares(Connection connection) throws ConnectException,
 
         showFlaggedSponsorsListButton.setText("Show a list of all sponsors with bulk & self shares with similar duration (using above values)");
         showFlaggedSponsorsListButton.setToolTipText("Select all sponsees which have created a reward share and a self share within a certain time interval and have a similar sponsorship duration");
-        showFlaggedSponsorsListButton.setMaximumSize(new java.awt.Dimension(550, 27));
-        showFlaggedSponsorsListButton.setMinimumSize(new java.awt.Dimension(550, 27));
+        showFlaggedSponsorsListButton.setMaximumSize(new java.awt.Dimension(600, 27));
+        showFlaggedSponsorsListButton.setMinimumSize(new java.awt.Dimension(600, 27));
         showFlaggedSponsorsListButton.setOpaque(true);
-        showFlaggedSponsorsListButton.setPreferredSize(new java.awt.Dimension(550, 27));
+        showFlaggedSponsorsListButton.setPreferredSize(new java.awt.Dimension(600, 27));
         showFlaggedSponsorsListButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -3446,10 +3449,10 @@ private void extractRewardShares(Connection connection) throws ConnectException,
         stopDeepScanButton.setText("Stop deep scan");
         stopDeepScanButton.setToolTipText("Deep scans will extract more information on sponsors and their sponsees from the blockchain");
         stopDeepScanButton.setEnabled(false);
-        stopDeepScanButton.setMaximumSize(new java.awt.Dimension(215, 27));
-        stopDeepScanButton.setMinimumSize(new java.awt.Dimension(215, 27));
+        stopDeepScanButton.setMaximumSize(new java.awt.Dimension(265, 27));
+        stopDeepScanButton.setMinimumSize(new java.awt.Dimension(265, 27));
         stopDeepScanButton.setName(""); // NOI18N
-        stopDeepScanButton.setPreferredSize(new java.awt.Dimension(215, 27));
+        stopDeepScanButton.setPreferredSize(new java.awt.Dimension(265, 27));
         stopDeepScanButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -3464,6 +3467,9 @@ private void extractRewardShares(Connection connection) throws ConnectException,
         menuPanel1.add(stopDeepScanButton, gridBagConstraints);
 
         updateDeepScanButton.setText("Update now");
+        updateDeepScanButton.setMaximumSize(new java.awt.Dimension(265, 27));
+        updateDeepScanButton.setMinimumSize(new java.awt.Dimension(265, 27));
+        updateDeepScanButton.setPreferredSize(new java.awt.Dimension(265, 27));
         updateDeepScanButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -3493,9 +3499,9 @@ private void extractRewardShares(Connection connection) throws ConnectException,
 
         deepScanSelectedButton.setText("Deep scan selected sponsor");
         deepScanSelectedButton.setEnabled(false);
-        deepScanSelectedButton.setMaximumSize(new java.awt.Dimension(215, 27));
-        deepScanSelectedButton.setMinimumSize(new java.awt.Dimension(215, 27));
-        deepScanSelectedButton.setPreferredSize(new java.awt.Dimension(215, 27));
+        deepScanSelectedButton.setMaximumSize(new java.awt.Dimension(265, 27));
+        deepScanSelectedButton.setMinimumSize(new java.awt.Dimension(265, 27));
+        deepScanSelectedButton.setPreferredSize(new java.awt.Dimension(265, 27));
         deepScanSelectedButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -3510,9 +3516,9 @@ private void extractRewardShares(Connection connection) throws ConnectException,
         menuPanel1.add(deepScanSelectedButton, gridBagConstraints);
 
         deepScanUnscannedButton.setText("Deep scan all unscanned sponsors");
-        deepScanUnscannedButton.setMaximumSize(new java.awt.Dimension(215, 27));
-        deepScanUnscannedButton.setMinimumSize(new java.awt.Dimension(215, 27));
-        deepScanUnscannedButton.setPreferredSize(new java.awt.Dimension(215, 27));
+        deepScanUnscannedButton.setMaximumSize(new java.awt.Dimension(265, 27));
+        deepScanUnscannedButton.setMinimumSize(new java.awt.Dimension(265, 27));
+        deepScanUnscannedButton.setPreferredSize(new java.awt.Dimension(265, 27));
         deepScanUnscannedButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)
@@ -3535,9 +3541,9 @@ private void extractRewardShares(Connection connection) throws ConnectException,
         menuPanel1.add(updateDeepScanSpinner, gridBagConstraints);
 
         deepScanAllButton.setText("Deep scan all sponsors");
-        deepScanAllButton.setMaximumSize(new java.awt.Dimension(215, 27));
-        deepScanAllButton.setMinimumSize(new java.awt.Dimension(215, 27));
-        deepScanAllButton.setPreferredSize(new java.awt.Dimension(215, 27));
+        deepScanAllButton.setMaximumSize(new java.awt.Dimension(265, 27));
+        deepScanAllButton.setMinimumSize(new java.awt.Dimension(265, 27));
+        deepScanAllButton.setPreferredSize(new java.awt.Dimension(265, 27));
         deepScanAllButton.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)

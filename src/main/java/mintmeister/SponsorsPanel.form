@@ -1302,14 +1302,14 @@
                             <Property name="text" type="java.lang.String" value="Show a list of all sponsors with bulk &amp; self shares with similar duration (using above values)"/>
                             <Property name="toolTipText" type="java.lang.String" value="Select all sponsees which have created a reward share and a self share within a certain time interval and have a similar sponsorship duration"/>
                             <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[550, 27]"/>
+                              <Dimension value="[600, 27]"/>
                             </Property>
                             <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[550, 27]"/>
+                              <Dimension value="[600, 27]"/>
                             </Property>
                             <Property name="opaque" type="boolean" value="true"/>
                             <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[550, 27]"/>
+                              <Dimension value="[600, 27]"/>
                             </Property>
                           </Properties>
                           <Events>
@@ -1442,14 +1442,14 @@
                             <Property name="toolTipText" type="java.lang.String" value="Deep scans will extract more information on sponsors and their sponsees from the blockchain"/>
                             <Property name="enabled" type="boolean" value="false"/>
                             <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="name" type="java.lang.String" value="" noResource="true"/>
                             <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                           </Properties>
                           <Events>
@@ -1464,6 +1464,15 @@
                         <Component class="javax.swing.JButton" name="updateDeepScanButton">
                           <Properties>
                             <Property name="text" type="java.lang.String" value="Update now"/>
+                            <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                              <Dimension value="[265, 27]"/>
+                            </Property>
+                            <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                              <Dimension value="[265, 27]"/>
+                            </Property>
+                            <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                              <Dimension value="[265, 27]"/>
+                            </Property>
                           </Properties>
                           <Events>
                             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="updateDeepScanButtonActionPerformed"/>
@@ -1496,13 +1505,13 @@
                             <Property name="text" type="java.lang.String" value="Deep scan selected sponsor"/>
                             <Property name="enabled" type="boolean" value="false"/>
                             <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                           </Properties>
                           <Events>
@@ -1518,13 +1527,13 @@
                           <Properties>
                             <Property name="text" type="java.lang.String" value="Deep scan all unscanned sponsors"/>
                             <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                           </Properties>
                           <Events>
@@ -1552,13 +1561,13 @@
                           <Properties>
                             <Property name="text" type="java.lang.String" value="Deep scan all sponsors"/>
                             <Property name="maximumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                             <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                              <Dimension value="[215, 27]"/>
+                              <Dimension value="[265, 27]"/>
                             </Property>
                           </Properties>
                           <Events>
