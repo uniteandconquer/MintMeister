@@ -373,7 +373,10 @@ public class SponsorsPanel extends javax.swing.JPanel
             model.setRowCount(0);   
             model.addRow(new Object[]{});
             
-            long lastUpdateTime = (long)dbManager.GetFirstItem("reward_shares", "timestamp", c);
+            long lastUpdateTime = (long)dbManager.GetFirstItem("reward_shares", "timestamp","timestamp","desc", c);
+            
+            System.err.println(Utilities.DateFormat(lastUpdateTime));
+            System.err.println(Utilities.MillisToDayHrMin(currentTime - lastUpdateTime));
             
             if(currentTime - lastUpdateTime > 604800000)
             {
