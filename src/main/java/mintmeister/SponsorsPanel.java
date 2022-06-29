@@ -375,9 +375,6 @@ public class SponsorsPanel extends javax.swing.JPanel
             
             long lastUpdateTime = (long)dbManager.GetFirstItem("reward_shares", "timestamp","timestamp","desc", c);
             
-            System.err.println(Utilities.DateFormat(lastUpdateTime));
-            System.err.println(Utilities.MillisToDayHrMin(currentTime - lastUpdateTime));
-            
             if(currentTime - lastUpdateTime > 604800000)
             {
                 model.addRow(new Object[]{"REWARD SHARE DATA IS MORE THAN 1 WEEK OLD","You can map the latest data in the 'Update' tab"});
