@@ -102,23 +102,31 @@ public class MintingMonitor extends javax.swing.JPanel
 
             createChartsTree();
             
-            Object deltaObject = Utilities.getSetting("mappingDelta", "settings.json");
-            if(deltaObject != null)
+            //using a separate try block to cath parsing errors in case user has fiddled with settings.json
+            try
             {
-                mappingDelta = Integer.parseInt(deltaObject.toString());
-                
-                if(mappingDelta >= 3600000)
+                Object deltaObject = Utilities.getSetting("mappingDelta", "settings.json");
+                if(deltaObject != null)
                 {
-                    minutesSlider.setVisible(false);
-                    hoursSlider.setValue(mappingDelta / 3600000);
-                    hoursSlider.setVisible(true);
+                    mappingDelta = Integer.parseInt(deltaObject.toString());
+
+                    if(mappingDelta >= 3600000)
+                    {
+                        minutesSlider.setVisible(false);
+                        hoursSlider.setValue(mappingDelta / 3600000);
+                        hoursSlider.setVisible(true);
+                    }
+                    else
+                    {
+                        hoursSlider.setVisible(false);
+                        minutesSlider.setValue(mappingDelta / 60000);
+                        minutesSlider.setVisible(true);
+                    }
                 }
-                else
-                {
-                    hoursSlider.setVisible(false);
-                    minutesSlider.setValue(mappingDelta / 60000);
-                    minutesSlider.setVisible(true);
-                }
+            }
+            catch (NumberFormatException e)
+            {
+                BackgroundService.AppendLog(e);
             }
 
             if(mintersTable.getRowCount() == 0)
@@ -229,15 +237,23 @@ public class MintingMonitor extends javax.swing.JPanel
     
     protected void checkForAutoStart()
     {
-        Object autoStart = Utilities.getSetting("autoStartMapping", "settings.json");
-        if(autoStart != null)
+        //using a try block to cath parsing errors in case user has fiddled with settings.json
+        try
         {
-            autoStartCheckbox.setSelected(Boolean.parseBoolean(autoStart.toString()));
-            if(autoStartCheckbox.isSelected())
+            Object autoStart = Utilities.getSetting("autoStartMapping", "settings.json");
+            if(autoStart != null)
             {
-                if(mintersTable.getRowCount() >= 0)
-                    continueButtonActionPerformed(null);
+                autoStartCheckbox.setSelected(Boolean.parseBoolean(autoStart.toString()));
+                if(autoStartCheckbox.isSelected())
+                {
+                    if(mintersTable.getRowCount() >= 0)
+                        continueButtonActionPerformed(null);
+                }            
             }            
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
         }
     }
     
@@ -850,6 +866,8 @@ public class MintingMonitor extends javax.swing.JPanel
         }
         catch(TimeoutException e)
         {
+            //MAPPING HALTED IS NOT SET TO TRUE HERE, WE WANT TO CONTINUE
+            //THE MAPPING SESSION IN CASE OF TIME-OUT (USUALLY DUE TO ADDRESSES/ONLINE API CALL)
             textArea.append("\n" + e.toString() + "\n");
             textArea.setText("Qortal API response timed out, skipping this scan for new minters");
             BackgroundService.AppendLog(e);

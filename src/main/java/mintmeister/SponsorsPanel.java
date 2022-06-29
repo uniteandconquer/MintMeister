@@ -63,16 +63,8 @@ public class SponsorsPanel extends javax.swing.JPanel
         
         chartMaker = new ChartMaker("", gui);
         
-        Object balanceObject = Utilities.getSetting("sponseeBalanceThreshold", "settings.json");
-        if(balanceObject != null)
-            sponseeSpinner.setValue(Integer.parseInt(balanceObject.toString()));
-        
-        Object maxTxObject = Utilities.getSetting("maxTxLookup", "settings.json");
-        if(maxTxObject != null)
-            maxTxSpinner.setValue(Integer.parseInt(maxTxObject.toString()));
-        
         try (Connection connection = ConnectionDB.getConnection("sponsors"))
-        {
+        {            
             if (dbManager.TableExists("reward_shares", connection))
             {
                 dbManager.FillJTableOrder("reward_shares", "timestamp", "desc", rewardsharesTable, true,connection);
@@ -89,6 +81,16 @@ public class SponsorsPanel extends javax.swing.JPanel
             fillInfoTable();
             
             initListeners();
+            
+            //Get settings from within try block, if user has messed with the settings.json it will not cause a showstopper error
+            //Execute this at end to ensure other init code is executed in case it cathces parsing errors             
+            Object balanceObject = Utilities.getSetting("sponseeBalanceThreshold", "settings.json");
+            if(balanceObject != null)
+                sponseeSpinner.setValue(Integer.parseInt(balanceObject.toString()));
+
+            Object maxTxObject = Utilities.getSetting("maxTxLookup", "settings.json");
+            if(maxTxObject != null)
+                maxTxSpinner.setValue(Integer.parseInt(maxTxObject.toString()));
         }
         catch (Exception e)
         {

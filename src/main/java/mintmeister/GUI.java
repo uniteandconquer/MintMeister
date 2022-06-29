@@ -890,25 +890,33 @@ public class GUI extends javax.swing.JFrame
         //always true on startup
         if(!sponsorDialogShown)
         {
-            // fail safe making sure dialog will not be loaded every time the user clicks this button
-            sponsorDialogShown = true;
-            
-            boolean shown;            
-            Object dialogObject = Utilities.getSetting("sponsorDialogShown", "settings.json");            
-            if(dialogObject != null)
-                shown = Boolean.parseBoolean(dialogObject.toString());
-            else
-                shown = false;
-            
-            if(!shown)
+            //using a try block to cath parsing errors in case user has fiddled with settings.json
+            try
             {
-                Utilities.updateSetting("sponsorDialogShown", "true", "settings.json"); 
-                sponsorStartupDialog.pack();
-                sponsorStartupDialog.setSize(600,525);
-                int x = getX() + ((getWidth() / 2) - (sponsorStartupDialog.getWidth() / 2));
-                int y = getY() + ((getHeight() / 2) - (sponsorStartupDialog.getHeight() / 2));
-                sponsorStartupDialog.setLocation(x, y);
-                sponsorStartupDialog.setVisible(true); 
+                // fail safe making sure dialog will not be loaded every time the user clicks this button
+                sponsorDialogShown = true;
+
+                boolean shown;            
+                Object dialogObject = Utilities.getSetting("sponsorDialogShown", "settings.json");            
+                if(dialogObject != null)
+                    shown = Boolean.parseBoolean(dialogObject.toString());
+                else
+                    shown = false;
+
+                if(!shown)
+                {
+                    Utilities.updateSetting("sponsorDialogShown", "true", "settings.json"); 
+                    sponsorStartupDialog.pack();
+                    sponsorStartupDialog.setSize(600,525);
+                    int x = getX() + ((getWidth() / 2) - (sponsorStartupDialog.getWidth() / 2));
+                    int y = getY() + ((getHeight() / 2) - (sponsorStartupDialog.getHeight() / 2));
+                    sponsorStartupDialog.setLocation(x, y);
+                    sponsorStartupDialog.setVisible(true); 
+                }
+            }
+            catch (Exception e)
+            {
+                BackgroundService.AppendLog(e);
             }
         }            
     }//GEN-LAST:event_sponsorsButtonActionPerformed
