@@ -1313,6 +1313,20 @@ public class SponsorsPanel extends javax.swing.JPanel
         thread.start();                
 }
 
+     /**
+      We only need to save the reward share transactions where the creator is not the recipient and the sharePercent is not negative
+      This is because we use those transactions in the reward_shares table to get a list of sponsors to iterate through when
+      updating sponsors and sponsees data. We could remove all old non reward share creation tx's before fetching new reward
+      shares from the API. In that case we'd have to make sure not to remove the account_level entries (just to be sure to not add those
+      as sponsees).<br><br>
+      If we want to go this route, the best way is probably to get the timestamp of the latest reward_share entry before API lookup.
+      After we have finished the API lookup and before the sponsors/sponsees update we delete every entry where creatorAddress != 
+      recipient address and timestamp is smaller than the latest entry. After that we delete every entry where creator address == creator address
+      and sharePercent is negative (even the newly added ones). All that will be left is the old and new reward share creations and the new self shares.
+      Those new self shares will be removed on the next update and replaced with the newer ones.<br><br>
+      For now, the benefit of pruning unnecessary entries does not outweigh the benefit of having all the reward share transactions visible
+      in the rewardShares table. This may change in the future though, when the size of the list gets much larger.<br><br>
+      We could probably prune the list even further by removing older reward share creations for sponsors that already exist in the sponsors table*/
 private void extractRewardShares(Connection connection) throws ConnectException, TimeoutException, IOException
 {                
         progressBar.setValue(0);
@@ -1343,7 +1357,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
         long startTime = System.currentTimeMillis();
 
         do
-        {
+        {            
             if (LOOKUP_HALTED)
                 break;
 
@@ -1414,7 +1428,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
             final int height = blockHeight;
             final int txFound = totalTxFound;
             final int txCount = totalTxCount;
-
+            
             SwingUtilities.invokeLater(() ->
             {
                 int blocksDone = height - lastCheckedBlock;
@@ -1424,6 +1438,10 @@ private void extractRewardShares(Connection connection) throws ConnectException,
 
                 double txPerBlock = ((double) txFound / blocksDone);
                 int txExpected = (int) (blocksLeft * txPerBlock);
+                
+                //Caused by blocksDone being 0. txPerBlock will be infinity
+                if(txExpected == Integer.MAX_VALUE)
+                    return;                
 
                 double percent = ((double) height / highest) * 100; //    (highest - (lastBlockHeight - lastCheckedBlock)) / highest) * 100;
                 progressBar.setValue((int) percent);

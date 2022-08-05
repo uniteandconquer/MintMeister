@@ -32,7 +32,7 @@ public class BackgroundService
     protected char [] password;
     private static final Logger logger = Logger.getLogger("debug_log");  
     private FileHandler fileHandler;  
-    protected static final String BUILDVERSION = "MintMeister 1.0.8";    
+    protected static final String BUILDVERSION = "MintMeister 1.0.9";    
     protected static boolean ISMAPPING;
     protected static SplashScreen SPLASH;
     protected static int totalApiCalls;
@@ -163,7 +163,7 @@ public class BackgroundService
     }  
     
     public static void AppendLog(Exception e)
-    {        
+    {    
         //comment 'setUseParentHandlers(false);'  in constructor
         //to enable console output for errors       
         

@@ -260,6 +260,7 @@ public class GUI extends javax.swing.JFrame
         mainToolbar = new javax.swing.JToolBar();
         mintingMonitorButton = new javax.swing.JButton();
         sponsorsButton = new javax.swing.JButton();
+        devFundButton = new javax.swing.JButton();
         namesButton = new javax.swing.JButton();
         nodeMonitorButton = new javax.swing.JButton();
         appearanceButton = new javax.swing.JButton();
@@ -269,6 +270,8 @@ public class GUI extends javax.swing.JFrame
         mintingMonitor = new mintmeister.MintingMonitor();
         sponsorsPanel = new mintmeister.SponsorsPanel();
         sponsorsPanel.initialise(this,dbManager);
+        devFundPanel = new mintmeister.DevFundPanel();
+        devFundPanel.init(dbManager);
         namesPanel = new mintmeister.NamesPanel();
         namesPanel.initialise(this);
         nodeMonitorPanel = new mintmeister.MonitorPanel();
@@ -481,6 +484,20 @@ public class GUI extends javax.swing.JFrame
         });
         mainToolbar.add(sponsorsButton);
 
+        devFundButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/dev_fund.png"))); // NOI18N
+        devFundButton.setText("Dev Fund");
+        devFundButton.setFocusable(false);
+        devFundButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        devFundButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        devFundButton.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                devFundButtonActionPerformed(evt);
+            }
+        });
+        mainToolbar.add(devFundButton);
+
         namesButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/names.png"))); // NOI18N
         namesButton.setText("Names");
         namesButton.setFocusable(false);
@@ -566,6 +583,7 @@ public class GUI extends javax.swing.JFrame
             mainPanel.setLayout(new java.awt.CardLayout());
             mainPanel.add(mintingMonitor, "mintingMonitor");
             mainPanel.add(sponsorsPanel, "sponsorsPanel");
+            mainPanel.add(devFundPanel, "devFundPanel");
             mainPanel.add(namesPanel, "namesPanel");
             mainPanel.add(nodeMonitorPanel, "monitorPanel");
 
@@ -927,6 +945,18 @@ public class GUI extends javax.swing.JFrame
         sponsorStartupDialog.dispose();
     }//GEN-LAST:event_okButtonActionPerformed
 
+    private void devFundButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_devFundButtonActionPerformed
+    {//GEN-HEADEREND:event_devFundButtonActionPerformed
+        CardLayout card = (CardLayout) mainPanel.getLayout();
+        currentCard = "devFundPanel";
+        card.show(mainPanel, currentCard);
+        if (nodeMonitorPanel.timer != null)
+            nodeMonitorPanel.timer.cancel();  
+        
+        //on slow systems, the dialog may not have been triggered to invisible on leaving the chart
+        mintingMonitor.chartMaker.chartDialog.setVisible(false);
+    }//GEN-LAST:event_devFundButtonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton appearanceButton;
@@ -934,6 +964,8 @@ public class GUI extends javax.swing.JFrame
     private javax.swing.JPopupMenu appearanceMenu;
     private javax.swing.JTextField btcField;
     private javax.swing.JLabel clipboardLabel;
+    private javax.swing.JButton devFundButton;
+    private mintmeister.DevFundPanel devFundPanel;
     private javax.swing.JButton dismissButton;
     private javax.swing.JTextField dogeField;
     private javax.swing.JButton donateButton;

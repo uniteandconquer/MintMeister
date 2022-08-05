@@ -317,6 +317,12 @@ public class Utilities
         return dateFormat.format(timeMillisec);
     }
     
+    public static String DateFormatDay(long timeMillisec)
+    {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy");
+        return dateFormat.format(timeMillisec);
+    }
+    
     public static String DateFormat(long timeMillisec)
     {
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy 'at' HH:mm:ss z");
@@ -446,7 +452,7 @@ public class Utilities
                 {
                     if(rs.getMetaData().getColumnName(columnIndex).contains("TIMESTAMP"))// if(columnIndex == timeStampIndex)
                         vector.add(DateFormatShort((long) rs.getObject(columnIndex)));
-                    else if(rs.getMetaData().getColumnName(columnIndex).equals("DURATION")) 
+                    else if(rs.getMetaData().getColumnName(columnIndex).contains("DURATION")) 
                         vector.add(MillisToDayHrMinShort((long) rs.getObject(columnIndex)));
                     else if(rs.getMetaData().getColumnName(columnIndex).equals("SCANNED") && rs.getObject(columnIndex) != null) 
                         vector.add(DateFormatShort((long) rs.getObject(columnIndex)));
