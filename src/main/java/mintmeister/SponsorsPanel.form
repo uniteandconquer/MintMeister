@@ -989,7 +989,7 @@
                         <Component class="javax.swing.JCheckBox" name="accountCheckbox">
                           <Properties>
                             <Property name="text" type="java.lang.String" value="Show account info"/>
-                            <Property name="toolTipText" type="java.lang.String" value="Toggles the &apos;BLOCKS_MINTED&apos;, &apos;LEVEL&apos; and &apos;MINTED_ADJ&apos; columns in the sponsees table"/>
+                            <Property name="toolTipText" type="java.lang.String" value="Toggles the &apos;BLOCKS_MINTED&apos;, &apos;LEVEL&apos; and &apos;MINTED_ADJ&apos; and &apos;MINTED_PENALTY&apos; columns in the sponsees table"/>
                           </Properties>
                           <Events>
                             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="accountCheckboxActionPerformed"/>

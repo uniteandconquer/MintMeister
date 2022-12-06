@@ -58,7 +58,7 @@ public class MintingMonitor extends javax.swing.JPanel
     private int[] groups;
     int iterations;
     long startTime;
-    int index_adj;
+//    int index_adj;
     private DatabaseManager dbManager;
     private String orderKey = "desc";
     private long nextIteration;
@@ -151,43 +151,63 @@ public class MintingMonitor extends javax.swing.JPanel
 
                 if(mintersTable.getSelectedRow() < 0)
                     return;
-
-                //first check if name not blank
-                String nameOrAddress = mintersTable.getValueAt(mintersTable.getSelectedRow(), 1).toString();
-                if(nameOrAddress.isBlank())
-                {
-                    nameOrAddress = mintersTable.getValueAt(mintersTable.getSelectedRow(), 0).toString();
-                    String start = nameOrAddress.substring(0, 4);
-                    String end = nameOrAddress.substring(nameOrAddress.length() - 4, nameOrAddress.length());
-                    nameOrAddress = start + "..." + end;
-                }
-                String duration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 8).toString();
-                int rank_session = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 4);
-                int rank_all_time = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 5);
-                int level = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 3);
-                int bph = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 2);
-                int minted = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 9);           
                 
-                int minted_adj = 0; 
-                if(index_adj == 1)
-                    minted_adj = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 12);
-                
-                String levelTime = mintersTable.getValueAt(mintersTable.getSelectedRow(),12 + index_adj).toString();
-                String levelDuration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 13 + index_adj).toString();
-                if(level < 10)
+                try(Connection c = ConnectionDB.getConnection("minters"))
                 {
-                    int blocksLeft = levels[level + 1] - (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 11);
-                    blocksLeft -= minted_adj;
+                    //first check if name not blank
+                    String address = mintersTable.getValueAt(mintersTable.getSelectedRow(), 0).toString();
+                    String nameOrAddress =  mintersTable.getValueAt(mintersTable.getSelectedRow(), 1).toString();
+                    if(nameOrAddress.isBlank())
+                    {
+                        nameOrAddress = address;
+                        String start = nameOrAddress.substring(0, 4);
+                        String end = nameOrAddress.substring(nameOrAddress.length() - 4, nameOrAddress.length());
+                        nameOrAddress = start + "..." + end;
+                    }
+                    String duration = mintersTable.getValueAt(mintersTable.getSelectedRow(), 8).toString();
+                    int rank_session = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 4);
+                    int rank_all_time = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 5);
+                    int level = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 3);
+                    int bph = (int) mintersTable.getValueAt(mintersTable.getSelectedRow(), 2);
+                    int minted = (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 9);  
+                    
+                    // These four variables can have a diffferent position in the minters table depending on the version
+                    // Fetch directly from database to ensure the correct value is used
+                    int minted_adj = (int)dbManager.GetItemValue("minters", "minted_adj",
+                            "where address=" + Utilities.SingleQuotedString(address), c);
+                    int minted_penalty = (int)dbManager.GetItemValue("minters", "minted_penalty",
+                            "where address=" + Utilities.SingleQuotedString(address), c);
+                    long level_time = (long)dbManager.GetItemValue("minters", "level_timestamp",
+                            "where address=" + Utilities.SingleQuotedString(address), c);
+                    long level_duration = (long)dbManager.GetItemValue("minters", "level_duration",
+                            "where address=" + Utilities.SingleQuotedString(address), c);
+                    
+                    String levelTime = Utilities.DateFormatShort(level_time);
+                    String levelDuration = Utilities.MillisToDayHrMinShort(level_duration);
+                    
+                    if(level < 10)
+                    {
+                        int blocksLeft = levels[level + 1] - (int)mintersTable.getValueAt(mintersTable.getSelectedRow(), 11);
+                        blocksLeft -= minted_adj;
 
-                    minterInfoLabel.setText(String.format("<html><div style='text-align: center;'>"
-                            + "%s : rank all time %d  |  rank session %d  |  level %d  |  %d blocks/hour  |  minted %d blocks in %s<br/>"
-                            + "%s blocks to next level  |  reaches level %d in %s, on %s (based on session blocks/hour)</div></html>",
-                            nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration,Utilities.integerFormat(blocksLeft),level + 1,levelDuration,levelTime));                
-                }
-                else
-                    minterInfoLabel.setText(String.format("%s : rank all time %d  |  rank session %d  |  level %d  |"
-                            + "  %d blocks/hour  |  minted %d blocks in %s",
-                            nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration));                
+                        minterInfoLabel.setText(String.format("<html><div style='text-align: center;'>"
+                                + "%s : rank all time %d  |  rank session %d  |  level %d  |  %d blocks/hour<br/>"
+                                + "minted %d blocks in %s  |   blocks minted penalty %s<br/>"
+                                + "%s blocks to next level  |  reaches level %d in %s, on %s (based on session blocks/hour)</div></html>",
+                                nameOrAddress,rank_all_time, rank_session,level,bph,
+                                minted,duration,Utilities.numberFormat(minted_penalty),
+                                Utilities.integerFormat(blocksLeft),level + 1,levelDuration,levelTime));                
+                    }
+                    else
+                        minterInfoLabel.setText(String.format("%s : rank all time %d  |  rank session %d  |  level %d  |"
+                                + "  %d blocks/hour  |  minted %d blocks in %s",
+                                nameOrAddress,rank_all_time, rank_session,level,bph,minted,duration));       
+
+                    }
+                    catch(Exception e)
+                    {
+                        BackgroundService.AppendLog(e);                    
+                    }         
 
             });  
 
@@ -299,7 +319,7 @@ public class MintingMonitor extends javax.swing.JPanel
                     dbManager.CreateTable(new String[]{"minters","address","varchar(100)","name","varchar(100)",
                                 "blocks_hour","int","level","int","rank_session","int","rank_all_time","int", "timestamp_start","long",
                                 "timestamp_end","long","duration","long","minted_session","int", "minted_start","int","minted_end","int",
-                                "minted_adj","int","level_timestamp","long","level_duration","long"}, connection);
+                                "minted_adj","int","minted_penalty","int","level_timestamp","long","level_duration","long"}, connection);
             } 
             
             //the following 2 tables are used to store some data to track network growth/progress over time
@@ -342,13 +362,15 @@ public class MintingMonitor extends javax.swing.JPanel
                     Utilities.MillisToDayHrMin(duration),
                     mintersTable.getRowCount()));
               
+            // NO LONGER NEED THIS VARIABLE, VALUES THAT MAY HAVE DIFFERENT POSITION IN MINTERS
+            // TABLE ARE NOW FETCHED DIRECTLY FROM DATABASE
             //minted_adj column was added later to the minters table, it's preferred that its columns location is next to
             //the other blocks minted columns. Older minter files will have the column at the end, we need to adjust the
             //index of the level duration and level timestamp columns for looking up those values for the minterInfoLabel
             //when selecting the minter in the mintersTable. 
-            index_adj = 1;
-            if(mintersTable.getColumnName(mintersTable.getColumnCount() - 1).equals("MINTED_ADJ"))
-                index_adj = 0;
+//            index_adj = 1;
+//            if(mintersTable.getColumnName(mintersTable.getColumnCount() - 1).equals("MINTED_ADJ"))
+//                index_adj = 0;
         }
         catch(Exception e)
         {
@@ -376,7 +398,25 @@ public class MintingMonitor extends javax.swing.JPanel
                     System.out.println("Added minted_adj column to minters table");
                     BackgroundService.AppendLog("Added minted_adj column to minters table");
                 }
-            }                
+                if(!dbManager.GetColumnHeaders("minters", connection).contains("MINTED_PENALTY"))
+                {
+                    dbManager.ExecuteUpdate("alter table minters add minted_penalty int", connection);
+                    dbManager.ExecuteUpdate("update minters set minted_penalty=0", connection);
+                    System.out.println("Added minted_penalty column to minters table");
+                    BackgroundService.AppendLog("Added minted_penalty column to minters table");
+                }
+            }               
+            if(dbManager.TableExists("minters_temp", connection))
+            {                
+                if(!dbManager.GetColumnHeaders("minters_temp", connection).contains("MINTED_PENALTY"))
+                {
+                    dbManager.ExecuteUpdate("alter table minters_temp add minted_penalty int", connection);
+                    dbManager.ExecuteUpdate("update minters_temp set minted_penalty=0", connection);
+                    System.out.println("Added minted_penalty column to minters_temp table");
+                    BackgroundService.AppendLog("Added minted_penalty column to minters_temp table");
+                }
+            }               
+            
             if(dbManager.TableExists("minters_data", connection))
             {
                 if(!dbManager.GetColumnHeaders("minters_data", connection).contains("INACTIVE"))
@@ -492,6 +532,7 @@ public class MintingMonitor extends javax.swing.JPanel
                             jsonString = Utilities.ReadStringFromURL("http://" + gui.dbManager.socket + "/addresses/" + minter.address);
                             jSONObject = new JSONObject(jsonString);
                             int mintedAdjustment = jSONObject.getInt("blocksMintedAdjustment");
+                            int mintedPenalty = jSONObject.getInt("blocksMintedPenalty");
                             int blocksMinted = jSONObject.getInt("blocksMinted");
                             int level = jSONObject.getInt("level");
                             
@@ -585,6 +626,7 @@ public class MintingMonitor extends javax.swing.JPanel
                                         "minted_start", String.valueOf(minter.blocksMintedStart),
                                         "minted_end", String.valueOf(blocksMinted),
                                         "minted_adj",String.valueOf(mintedAdjustment),
+                                        "minted_penalty", String.valueOf(mintedPenalty),
                                         "level_timestamp", String.valueOf(timestampLevelUp),
                                         "level_duration",String.valueOf((long)millisecLeft)}, connection);                     
 
@@ -889,7 +931,7 @@ public class MintingMonitor extends javax.swing.JPanel
             dbManager.CreateTable(new String[]{"minters_temp","address","varchar(100)","name","varchar(100)",
                 "blocks_hour","int","level","int","rank_session","int","rank_all_time","int", "timestamp_start","long",
                 "timestamp_end","long","duration","long", "minted_session","int", "minted_start","int","minted_end","int",
-                "minted_adj","int","level_timestamp","long","level_duration","long"}, connection);
+                "minted_adj","int","minted_penalty","int", "level_timestamp","long","level_duration","long"}, connection);
     }
     
     private void collapseAll(JTree tree, TreePath parent)

@@ -63,6 +63,8 @@ public class SponsorsPanel extends javax.swing.JPanel
         
         chartMaker = new ChartMaker("", gui);
         
+        checkCompatibility();
+        
         try (Connection connection = ConnectionDB.getConnection("sponsors"))
         {            
             if (dbManager.TableExists("reward_shares", connection))
@@ -246,6 +248,42 @@ public class SponsorsPanel extends javax.swing.JPanel
                 }
             }
         });        
+    }
+    
+    private void checkCompatibility()
+    {
+        File dbFile = new File(System.getProperty("user.dir") + "/minters/sponsors.mv.db");
+        
+        if (!dbFile.exists())
+            return;
+        
+        try(Connection connection = ConnectionDB.getConnection("sponsors"))
+        {              
+            if(dbManager.TableExists("sponsors", connection))
+            {       
+                if(!dbManager.GetColumnHeaders("sponsors", connection).contains("MINTED_PENALTY"))
+                {
+                    dbManager.ExecuteUpdate("alter table sponsors add minted_penalty int", connection);
+                    dbManager.ExecuteUpdate("update sponsors set minted_penalty=0", connection);
+                    System.out.println("Added minted_penalty column to sponsors table");
+                    BackgroundService.AppendLog("Added minted_penalty column to sponsors table");
+                }
+            }                
+            if(dbManager.TableExists("sponsees", connection))
+            {             
+                if(!dbManager.GetColumnHeaders("sponsees", connection).contains("MINTED_PENALTY"))
+                {
+                    dbManager.ExecuteUpdate("alter table sponsees add minted_penalty int", connection);
+                    dbManager.ExecuteUpdate("update sponsees set minted_penalty=0", connection);
+                    System.out.println("Added minted_penalty column to sponsees table");
+                    BackgroundService.AppendLog("Added minted_penalty column to sponsees table");
+                }
+            }          
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
     }
     
     private void fillInfoTable()
@@ -643,7 +681,7 @@ public class SponsorsPanel extends javax.swing.JPanel
 
         ArrayList<String> selected = new ArrayList<>();
         if(accountCheckbox.isSelected())
-            selected.add("level,blocks_minted,minted_adjustment");
+            selected.add("level,blocks_minted,minted_adjustment,minted_penalty");
         if(balanceCheckbox.isSelected())
             selected.add("balance_flag,balance");
         if(paymentsCheckbox.isSelected())
@@ -795,6 +833,9 @@ public class SponsorsPanel extends javax.swing.JPanel
          {             
              updateInProgress = true;
              stopDeepScanButton.setEnabled(true);
+             deepScanAllButton.setEnabled(false);
+             deepScanUnscannedButton.setEnabled(false);
+             updateDeepScanButton.setEnabled(false);
              
              deepScanProgressBar.setVisible(true);
              deepScanProgressBar.setStringPainted(true);
@@ -894,7 +935,8 @@ public class SponsorsPanel extends javax.swing.JPanel
                        jso = new JSONObject(jsonString);
                        level = jso.getInt("level");
                        blocksMinted = jso.getInt("blocksMinted");
-                       int mintedAdjustment = jso.getInt("blocksMintedAdjustment");                       
+                       int mintedAdjustment = jso.getInt("blocksMintedAdjustment");    
+                       int mintedPenalty = jso.getInt("blocksMintedPenalty");                       
 
                        balance =  Double.parseDouble(Utilities.ReadStringFromURL(
                             "http://" + dbManager.socket + "/addresses/balance/" + sponseeAddress));  
@@ -913,6 +955,11 @@ public class SponsorsPanel extends javax.swing.JPanel
 
                        dbManager.ChangeValue("sponsees", 
                                "minted_adjustment", String.valueOf(mintedAdjustment), 
+                               "sponsor_address=" + Utilities.SingleQuotedString(sponsorAddress) + " and " +
+                               "address=" + Utilities.SingleQuotedString(sponseeAddress) , connection);
+                       
+                       dbManager.ChangeValue("sponsees", 
+                               "minted_penalty", String.valueOf(mintedPenalty), 
                                "sponsor_address=" + Utilities.SingleQuotedString(sponsorAddress) + " and " +
                                "address=" + Utilities.SingleQuotedString(sponseeAddress) , connection);
 
@@ -1190,7 +1237,11 @@ public class SponsorsPanel extends javax.swing.JPanel
              
             updateInProgress = false;
             LOOKUP_HALTED = false;
-            stopDeepScanButton.setEnabled(false);
+            stopDeepScanButton.setEnabled(false);            
+            deepScanAllButton.setEnabled(true);
+            deepScanUnscannedButton.setEnabled(true);
+            updateDeepScanButton.setEnabled(true);            
+            
             deepScanProgressBar.setVisible(false);
             deepScanProgressBar.setString("");
             deepScanProgressBar.setStringPainted(false);
@@ -1507,6 +1558,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                 "is_founder", "varchar(1)",
                 "blocks_minted","int",
                 "minted_adjustment","int",
+                "minted_penalty","int",
                 "balance","double",
                 "sponsees_balance","double",
                 "payers_count","int",
@@ -1527,6 +1579,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                 "level","tinyint",
                 "blocks_minted","int",
                 "minted_adjustment","int",
+                "minted_penalty","int",
                 "balance_flag","varchar(1)",
                 "balance","double",
                 "payments_to_sponsor","int",
@@ -1586,6 +1639,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                 int level = sponsorObject.getInt("level");
                 int blocksMinted = sponsorObject.getInt("blocksMinted");
                 int mintedAdjustment = sponsorObject.getInt("blocksMintedAdjustment");
+                int mintedPenalty = sponsorObject.getInt("blocksMintedPenalty");
                 boolean isFounder = sponsorObject.getInt("flags") == 1;
                 
                //could use any field to verify is sponsor entry exists, using founder cause it's the smallest
@@ -1605,7 +1659,8 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                             "sponsee_count", String.valueOf(sponseesAdded),
                             "is_founder", Utilities.SingleQuotedString(founderFlag),
                             "blocks_minted",String.valueOf(blocksMinted),
-                            "minted_adjustment",String.valueOf(mintedAdjustment)
+                            "minted_adjustment",String.valueOf(mintedAdjustment),
+                            "minted_penalty",String.valueOf(mintedPenalty)
                         }, sponsorsConnection);
                     }
                         
@@ -1623,6 +1678,8 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                     dbManager.ChangeValue("sponsors", "blocks_minted", String.valueOf((blocksMinted)), "address",
                             Utilities.SingleQuotedString(creatorAddress), sponsorsConnection);
                     dbManager.ChangeValue("sponsors", "minted_adjustment", String.valueOf((mintedAdjustment)), "address",
+                            Utilities.SingleQuotedString(creatorAddress), sponsorsConnection);   
+                    dbManager.ChangeValue("sponsors", "minted_penalty", String.valueOf((mintedPenalty)), "address",
                             Utilities.SingleQuotedString(creatorAddress), sponsorsConnection);                  
                 }
 
@@ -2091,6 +2148,10 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                                     " and sponsor_address=" + Utilities.SingleQuotedString(sponsorAddress), c);
                         model.addRow(new Object[]{"Blocks minted adjustment", Utilities.numberFormat(mintedAdj)});     
                         
+                        int mintedPenalty = (int) dbManager.GetItemValue("sponsees", "minted_penalty", "where address=" + Utilities.SingleQuotedString(sponseeAddress) + 
+                                    " and sponsor_address=" + Utilities.SingleQuotedString(sponsorAddress), c);
+                        model.addRow(new Object[]{"Blocks minted penalty", Utilities.numberFormat(mintedPenalty)});    
+                        
                         double balance = (double) dbManager.GetItemValue("sponsees", "balance", "where address=" + Utilities.SingleQuotedString(sponseeAddress) + 
                                     " and sponsor_address=" + Utilities.SingleQuotedString(sponsorAddress), c);
                         model.addRow(new Object[]{"Balance", String.format("%,.2f", balance)});
@@ -2242,6 +2303,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                 model.addRow(new Object[]{"Is a founder",isFounder});  
                 model.addRow(new Object[]{"Blocks minted", Utilities.numberFormat((int)sponsorsTable.getValueAt(sponsorsTable.getSelectedRow(), 5))});   
                 model.addRow(new Object[]{"Blocks minted adjustment", Utilities.numberFormat((int)sponsorsTable.getValueAt(sponsorsTable.getSelectedRow(), 6))});  
+                model.addRow(new Object[]{"Blocks minted penalty", Utilities.numberFormat((int)sponsorsTable.getValueAt(sponsorsTable.getSelectedRow(), 14))});  
                 
                 Object balance = dbManager.GetItemValue("sponsors", "balance","where address=" + Utilities.SingleQuotedString(sponsorAddress), c);
                 boolean deepScanned = balance != null;
@@ -3095,7 +3157,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
         menuPanel.add(deselectButton, gridBagConstraints);
 
         accountCheckbox.setText("Show account info");
-        accountCheckbox.setToolTipText("Toggles the 'BLOCKS_MINTED', 'LEVEL' and 'MINTED_ADJ' columns in the sponsees table");
+        accountCheckbox.setToolTipText("Toggles the 'BLOCKS_MINTED', 'LEVEL' and 'MINTED_ADJ' and 'MINTED_PENALTY' columns in the sponsees table");
         accountCheckbox.addActionListener(new java.awt.event.ActionListener()
         {
             public void actionPerformed(java.awt.event.ActionEvent evt)

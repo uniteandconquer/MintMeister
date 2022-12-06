@@ -833,7 +833,7 @@ public class MonitorPanel extends javax.swing.JPanel
         if (returnValue == JFileChooser.APPROVE_OPTION)
         {            
             File selectedDirectory = jfc.getSelectedFile();   
-            if(!selectedDirectory.getName().equals("qortal"))
+            if(!selectedDirectory.getName().toLowerCase().equals("qortal"))
             {
                 JOptionPane.showMessageDialog(this, Utilities.AllignCenterHTML("The directory should be named 'qortal' "
                         + "<br/>Qortal directory was not set"));
