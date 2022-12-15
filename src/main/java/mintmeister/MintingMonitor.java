@@ -21,9 +21,14 @@ import java.util.TimerTask;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import javax.swing.JButton;
 import javax.swing.JFileChooser;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
@@ -94,6 +99,8 @@ public class MintingMonitor extends javax.swing.JPanel
             chartMaker = new ChartMaker("", gui);
             
             checkCompatibility();
+            
+            fillExMinterTable("MINTED_END", "desc");
 
             fillMinterTable("MINTED_END","desc");
             setMinterRank();   
@@ -130,7 +137,19 @@ public class MintingMonitor extends javax.swing.JPanel
             }
 
             if(mintersTable.getRowCount() == 0)
-                continueButton.setEnabled(false);
+                continueButton.setEnabled(false);        
+            
+            exMintersTable.getTableHeader().addMouseListener(new MouseAdapter()
+            {
+                @Override
+                public void mouseClicked(MouseEvent e)
+                {
+                    orderKey = orderKey.equals("asc") ? "desc" : "asc";  
+                    int col = exMintersTable.columnAtPoint(e.getPoint());
+                    String headerName = exMintersTable.getColumnName(col);                
+                    fillExMinterTable(headerName,orderKey);
+                }
+            });   
 
             mintersTable.getTableHeader().addMouseListener(new MouseAdapter()
             {
@@ -299,6 +318,55 @@ public class MintingMonitor extends javax.swing.JPanel
         {
             BackgroundService.AppendLog(e);
         }
+    }    
+    
+    private void fillExMinterTable(String headerName,String order)
+    {      
+         File dbFile = new File(System.getProperty("user.dir") + "/minters/minters.mv.db");
+
+        if (!dbFile.exists())
+        {
+            ConnectionDB.CreateDatabase("minters");
+        }
+
+        try (Connection connection = ConnectionDB.getConnection("minters"))
+        {
+            if (dbManager.TableExists("ex_minters", connection))
+            {
+                int total = dbManager.getRowCount("ex_minters", connection);
+                int penalized = dbManager.GetColumn("ex_minters", "address", " where minted_penalty < 0", "", "", connection).size();
+                int transferred =  dbManager.GetColumn("ex_minters", "address",  " where minted_penalty = 0", "", "", connection).size();
+                
+                exMinterListInfoLabel.setText(Utilities.AllignCenterHTML(
+                        String.format("Total entries : %s<br/>Penalized accounts : %s<br/>Transferred accounts : %s<br/><br/>"
+                                + "Penalized accounts are accounts with a minted penalty.<br/>"
+                                + "Transferred accounts are accounts which used to have a higher level which was transferred to another account.<br/>"
+                                + "This list contains accounts which were found during your mapping session, not necessarily all existing penalized and transferred accounts.", 
+                                Utilities.numberFormat(total),Utilities.numberFormat(penalized), Utilities.numberFormat(transferred))));
+                
+                dbManager.FillJTableOrder("ex_minters", headerName, order, exMintersTable, true, connection);
+            }
+            else
+            {
+                dbManager.CreateTable(
+                        new String[]
+                        {
+                            "ex_minters",
+                            "address", "varchar(100)",
+                            "name", "varchar(100)",
+                            "highest_level", "int",
+                            "level", "int",
+                            "minted_end", "int",
+                            "minted_adj", "int",
+                            "minted_penalty", "int"
+                        }, connection);
+            }
+
+        }
+        catch (Exception e)
+        {
+            BackgroundService.AppendLog(e);
+        }
     }
     
     private void fillMinterTable(String headerName,String order)
@@ -319,7 +387,7 @@ public class MintingMonitor extends javax.swing.JPanel
                     dbManager.CreateTable(new String[]{"minters","address","varchar(100)","name","varchar(100)",
                                 "blocks_hour","int","level","int","rank_session","int","rank_all_time","int", "timestamp_start","long",
                                 "timestamp_end","long","duration","long","minted_session","int", "minted_start","int","minted_end","int",
-                                "minted_adj","int","minted_penalty","int","level_timestamp","long","level_duration","long"}, connection);
+                                "minted_adj","int","minted_penalty","int", "level_timestamp","long","level_duration","long"}, connection);
             } 
             
             //the following 2 tables are used to store some data to track network growth/progress over time
@@ -502,7 +570,11 @@ public class MintingMonitor extends javax.swing.JPanel
                     {                        
                         createTempTable(connection);
 
-                        int namesCount = 0;                        
+                        int namesCount = 0;     
+                        
+                        ArrayList<Minter> exMinters = new ArrayList<>();
+                        int penalized = 0;
+                        int transferred = 0;
 
                         for(int i = minters.size() - 1; i >= 0; i--)
                         {     
@@ -551,13 +623,39 @@ public class MintingMonitor extends javax.swing.JPanel
                                 }                                
                             }
                             
-                            //for some addresses the api returns level 0 (due to transferring level to different account?)
-                            //IF PREVIOUS LEVEL > 0 and current level == 0, we can assume this was the case
-                            if(level == 0 && minter.level > 0)
+                            // Move accounts with minted penalty to ex-minters list and skip to next minter.
+                            if(mintedPenalty < 0)
                             {
-                                String notification = String.format("Removing address '%s' from minters list, API returned level 0 for this address", minter.address);
+                                String notification = String.format("Moving address '%s' to ex-minters list, minted penalty is %d", minter.address,mintedPenalty);
                                 System.out.println(notification);
                                 BackgroundService.AppendLog(notification);
+                                exMinters.add(minter);      
+                                //Using the blocksMintedStart field to store the last known blocks minted, will be inserted into db below
+                                minter.blocksMintedStart = blocksMinted;   
+                                //Using the timeStampStart field to store the minted adj, will be inserted into db below
+                                minter.timestampStart = mintedAdjustment;
+                                //Using the bph field to store the minted penalty, will be inserted into db below
+                                minter.blocksPerHour = mintedPenalty;
+                                penalized++;
+                                addresses.remove(minter.address);
+                                minters.remove(minter);
+                                continue;
+                            }
+                            
+                            // Move accounts that have transferred privs to ex-minters list and skip to next minter.                                                        
+                            if(level == 0 && minter.level > 0)
+                            {
+                                String notification = String.format("Moving address '%s' to ex-minters list, level was %d and is now 0", minter.address,minter.level);
+                                System.out.println(notification);
+                                BackgroundService.AppendLog(notification);
+                                exMinters.add(minter);  
+                                //Using the blocksMintedStart field to store the last known blocks minted, will be inserted into db below
+                                minter.blocksMintedStart = blocksMinted;
+                                //Using the timeStampStart field to store the minted adj, will be inserted into db below
+                                minter.timestampStart = mintedAdjustment;
+                                //Using the bph field to store the minted penalty, will be inserted into db below
+                                minter.blocksPerHour = mintedPenalty;
+                                transferred++;
                                 addresses.remove(minter.address);
                                 minters.remove(minter);
                                 continue;
@@ -669,6 +767,54 @@ public class MintingMonitor extends javax.swing.JPanel
 
                         }//end for (minters)
                         
+                        
+                        
+                        if(!exMinters.isEmpty())
+                        {
+                            BackgroundService.AppendLog(String.format("Found %s penalized accounts\nFound %s accounts that have transferred privs", 
+                                    Utilities.numberFormat(penalized),Utilities.numberFormat(transferred)));
+                            System.out.println(String.format("Found %s penalized accounts\nFound %s accounts that have transferred privs", 
+                                    Utilities.numberFormat(penalized),Utilities.numberFormat(transferred)));
+                            
+                            if(!dbManager.TableExists("ex_minters", connection))
+                                dbManager.CreateTable(
+                                       new String[]
+                                       {
+                                            "ex_minters",
+                                            "address", "varchar(100)",
+                                            "name", "varchar(100)",
+                                            "highest_level", "int",
+                                            "level", "int", 
+                                            "minted_end", "int",
+                                            "minted_adj","int",
+                                            "minted_penalty","int"
+                                       }, connection);
+                            
+                            
+                            ArrayList existing = dbManager.GetColumn("ex_minters", "address", "", "'", connection);
+                            
+                            for(Minter exMinter : exMinters)
+                            {
+                                if(existing.contains(exMinter.address))
+                                    continue;
+                                
+                                dbManager.InsertIntoDB(
+                                       new String[]
+                                       {
+                                            "ex_minters",
+                                            "address", Utilities.SingleQuotedString(exMinter.address),
+                                            "name", Utilities.SingleQuotedString(exMinter.name),
+                                            "highest_level", String.valueOf(exMinter.level),
+                                            "level", "0", 
+                                            "minted_end", String.valueOf(exMinter.blocksMintedStart),// using bms field to hold blocks minted end
+                                            "minted_adj",String.valueOf(exMinter.timestampStart),// using tss field to hold minted adj
+                                            "minted_penalty", String.valueOf(exMinter.blocksPerHour)// using bph field to hold penalty
+                                       }, connection);
+                            }
+                            
+                            fillExMinterTable("minted_end", "desc");
+                        }       
+                        
                         progressBar.setValue(0);
 
                         appendText(String.format(
@@ -682,7 +828,11 @@ public class MintingMonitor extends javax.swing.JPanel
                                  + "inactive minters : %d (%.2f%%)\n"
                                  + "anomalies : %d (%.2f%%) (irregular data)\n"
                                  + "uncounted : %d (%.2f%%) (not enough data)\n\n"
-                                 + "Names registered : %d out of %d minters (%.2f%%)\n\n", 
+                                 + "Names registered : %d out of %d minters (%.2f%%)\n\n"
+                                + "Penalized minters found and moved to Ex minters list : %s\n"
+                                + "Transferred minters found and moved to Ex minters list : %s\n"
+                                + "Total minters moved to to Ex minters list : %s\n"
+                                + "New total minters count : %s\n\n", 
                                 groups[1],(double) (((double)groups[1] / minters.size()) * 100),
                                 groups[2],(double) (((double)groups[2] / minters.size()) * 100),
                                 groups[3],(double) (((double)groups[3] / minters.size()) * 100),
@@ -692,7 +842,11 @@ public class MintingMonitor extends javax.swing.JPanel
                                 groups[8],(double) (((double)groups[8] / minters.size()) * 100) ,
                                 groups[0],(double) (((double)groups[0] / minters.size()) * 100),  
                                 groups[7],(double) (((double)groups[7] / minters.size()) * 100) ,
-                                namesCount,minters.size(),((double) namesCount / minters.size()) * 100
+                                namesCount,minters.size(),((double) namesCount / minters.size()) * 100,
+                                Utilities.numberFormat(penalized),
+                                Utilities.numberFormat(transferred),
+                                Utilities.numberFormat(penalized + transferred),
+                                Utilities.numberFormat(minters.size())
                         ));
 
                        nextIteration = currentTime + mappingDelta;
@@ -931,7 +1085,7 @@ public class MintingMonitor extends javax.swing.JPanel
             dbManager.CreateTable(new String[]{"minters_temp","address","varchar(100)","name","varchar(100)",
                 "blocks_hour","int","level","int","rank_session","int","rank_all_time","int", "timestamp_start","long",
                 "timestamp_end","long","duration","long", "minted_session","int", "minted_start","int","minted_end","int",
-                "minted_adj","int","minted_penalty","int", "level_timestamp","long","level_duration","long"}, connection);
+                "minted_adj","int","minted_penalty","int","level_timestamp","long","level_duration","long"}, connection);
     }
     
     private void collapseAll(JTree tree, TreePath parent)
@@ -1281,7 +1435,10 @@ public class MintingMonitor extends javax.swing.JPanel
                 allLevelsNode.add(activesRatio);
                 DefaultMutableTreeNode activesRatioNetwork = 
                         new DefaultMutableTreeNode(new NodeInfo("Active/inactive ratio network", "arrow-right.png"));
-                allLevelsNode.add(activesRatioNetwork);
+                allLevelsNode.add(activesRatioNetwork);                
+                DefaultMutableTreeNode penaltyDistNode = 
+                        new DefaultMutableTreeNode(new NodeInfo("Penalty distribution", "arrow-right.png"));
+                allLevelsNode.add(penaltyDistNode);
                 
                 selectedNode = bphTotalNode;
                 
@@ -1418,10 +1575,22 @@ public class MintingMonitor extends javax.swing.JPanel
                                 chartsTab.setRightComponent(chartPanel);                                     
                             }
                             break;
-                        case "Pie charts":                           
-                            int maxLevel = (int)dbManager.GetColumn("minters", "level", "level", "desc", connection).get(0) + 1;//account for level 0   
+                        case "Pie charts":   
+                            int maxLevel;   
+                            JTable tableToUse;
+                            if(selected.equals("Penalty distribution"))
+                            {
+                                tableToUse = exMintersTable;
+                                maxLevel = (int)dbManager.GetColumn("ex_minters", "highest_level", "highest_level", "desc", connection).get(0) + 1;//account for level 0   
+                            }
+                            else
+                            {
+                                tableToUse = mintersTable;
+                                maxLevel = (int)dbManager.GetColumn("minters", "level", "level", "desc", connection).get(0) + 1;//account for level 0  
+                            }
+                            // Can use the tableTime from minters for ex_minters, were mapped at the same time
                             long tableTime = (long)dbManager.GetColumn("minters", "timestamp_end", "timestamp_end", "desc", connection).get(0);   
-                            pieChart = new PieChart(selected,levelType,maxLevel,tableTime,mintersTable);
+                            pieChart = new PieChart(selected,levelType,maxLevel,tableTime,tableToUse);
                             chartsTab.setRightComponent(pieChart.chartPanel);
                             break;
                     }   
@@ -1521,11 +1690,11 @@ public class MintingMonitor extends javax.swing.JPanel
             textArea.setCaretPosition(textArea.getText().length());
     }    
     
-    private void searchForMinter()
+    private void applySearch(JTable table, JTextField inputField,  boolean caseSensitive, JLabel infoLabel,JScrollPane scrollPane,JButton button)
     {
         searchInfoLabel.setText("Search for minter");
         
-        if(searchInput.getText().isBlank())
+        if(inputField.getText().isBlank())
             return;
         
         searchResults.clear();
@@ -1534,13 +1703,13 @@ public class MintingMonitor extends javax.swing.JPanel
         int nameColumn = 1;
         int addressColumn = 0;
         
-        String address = searchInput.getText();
+        String address = inputField.getText();
         
         //first search for name
-        for(int i = 0; i < mintersTable.getRowCount(); i++)
+        for(int i = 0; i < table.getRowCount(); i++)
         {
-            String rowEntry = mintersTable.getValueAt(i, nameColumn).toString();
-            if(caseCheckbox.isSelected())
+            String rowEntry = table.getValueAt(i, nameColumn).toString();
+            if(caseSensitive)
             {
                 if(rowEntry.contains(address))
                     searchResults.add(i);
@@ -1552,11 +1721,11 @@ public class MintingMonitor extends javax.swing.JPanel
             }                
         }    
         
-        for (int i = 0; i < mintersTable.getRowCount(); i++)
+        for (int i = 0; i < table.getRowCount(); i++)
         {
-            String rowEntry = mintersTable.getValueAt(i, addressColumn).toString();
+            String rowEntry = table.getValueAt(i, addressColumn).toString();
 
-            if (caseCheckbox.isSelected())
+            if (caseSensitive)
             {
                 if (rowEntry.contains(address))
                     searchResults.add(i);
@@ -1571,49 +1740,49 @@ public class MintingMonitor extends javax.swing.JPanel
         if(searchResults.isEmpty()) 
         {
             searchIndex = 0;
-            searchButton.setText("Search");
-            searchInfoLabel.setText(Utilities.SingleQuotedString(searchInput.getText()) + " not found");            
-            mintersTable.clearSelection();
+            button.setText("Search");
+            infoLabel.setText(Utilities.SingleQuotedString(inputField.getText()) + " not found");            
+            table.clearSelection();
             return;
         }
         else
         {     
             searchIndex = 0; 
             if(searchResults.size() == 1)
-                searchButton.setText("Search");
+                button.setText("Search");
             else
-                searchButton.setText("Show next");
+                button.setText("Show next");
         }
         
-        goToSearchResult(searchResults.get(0));        
+        goToSearchResult(searchResults.get(0), infoLabel,inputField,table,scrollPane);        
     }
     
-    private void goToSearchResult(int rowIndex)
+    private void goToSearchResult(int rowIndex, JLabel infoLabel, JTextField inputField, JTable table, JScrollPane scrollPane)
     {      
         if(searchResults.size() == 1)
-            searchInfoLabel.setText("Found 1 result for " +Utilities.SingleQuotedString(searchInput.getText()));  
+            infoLabel.setText("Found 1 result for " +Utilities.SingleQuotedString(inputField.getText()));  
         else
-            searchInfoLabel.setText(String.format("Showing result %d out of %d for '%s'", 
-                    searchIndex + 1,searchResults.size(),searchInput.getText()));        
+            infoLabel.setText(String.format("Showing result %d out of %d for '%s'", 
+                    searchIndex + 1,searchResults.size(),inputField.getText()));        
         
-        mintersTable.setRowSelectionInterval(rowIndex, rowIndex);
+        table.setRowSelectionInterval(rowIndex, rowIndex);
         
         //scroll as close to middle as possible
-        JViewport viewport = mintersTableScrollpane.getViewport();
+        JViewport viewport = scrollPane.getViewport();
         Dimension extentSize = viewport.getExtentSize();   
-        int visibleRows = extentSize.height/mintersTable.getRowHeight();
+        int visibleRows = extentSize.height/table.getRowHeight();
         
         //first scroll all the way up (scrolling up to found name was not working properly)
-        mintersTable.scrollRectToVisible(new Rectangle(mintersTable.getCellRect(0, 0, true)));   
+        table.scrollRectToVisible(new Rectangle(table.getCellRect(0, 0, true)));   
         
         int scrollToRow = rowIndex + (visibleRows / 2);        
-        if(scrollToRow >= mintersTable.getRowCount())
-            scrollToRow = mintersTable.getRowCount() - 1;
+        if(scrollToRow >= table.getRowCount())
+            scrollToRow = table.getRowCount() - 1;
         
         if(rowIndex <= visibleRows / 2)
             scrollToRow = 0;
         
-        mintersTable.scrollRectToVisible(new Rectangle(mintersTable.getCellRect(scrollToRow, 0, true)));          
+        table.scrollRectToVisible(new Rectangle(table.getCellRect(scrollToRow, 0, true)));          
     }
    
     
@@ -1672,6 +1841,19 @@ public class MintingMonitor extends javax.swing.JPanel
         mintersTableScrollpane = new javax.swing.JScrollPane();
         mintersTable = new javax.swing.JTable();
         mintersTable.getTableHeader().setReorderingAllowed(false);
+        exMintersTab = new javax.swing.JSplitPane();
+        exMinterMenuScrollPane = new javax.swing.JScrollPane();
+        minterMenuScrollPane.getHorizontalScrollBar().setUnitIncrement(10);
+        exMinterMenuPanel = new javax.swing.JPanel();
+        exMinterSearchPanel = new javax.swing.JPanel();
+        exMinterSearchInput = new javax.swing.JTextField();
+        exMintersSearchInfoLabel = new javax.swing.JLabel();
+        exMinterSearchButton = new javax.swing.JButton();
+        exMinterCaseCheckBox = new javax.swing.JCheckBox();
+        exMinterListInfoLabel = new javax.swing.JLabel();
+        exMintersTableScrollpane = new javax.swing.JScrollPane();
+        exMintersTable = new javax.swing.JTable();
+        exMintersTable.getTableHeader().setReorderingAllowed(false);
         chartsTab = new javax.swing.JSplitPane();
         chartPanelPlaceHolder = new javax.swing.JPanel();
         chartsTreeSplitPane = new javax.swing.JSplitPane();
@@ -2075,6 +2257,93 @@ public class MintingMonitor extends javax.swing.JPanel
 
         jTabbedPane1.addTab("Minters List  ", new javax.swing.ImageIcon(getClass().getResource("/Images/account.png")), minterListTab); // NOI18N
 
+        exMintersTab.setDividerLocation(250);
+        exMintersTab.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
+
+        exMinterMenuPanel.setLayout(new java.awt.GridBagLayout());
+
+        exMinterSearchPanel.setLayout(new java.awt.GridBagLayout());
+
+        exMinterSearchInput.setHorizontalAlignment(javax.swing.JTextField.CENTER);
+        exMinterSearchInput.setMinimumSize(new java.awt.Dimension(300, 27));
+        exMinterSearchInput.setPreferredSize(new java.awt.Dimension(300, 27));
+        exMinterSearchInput.addFocusListener(new java.awt.event.FocusAdapter()
+        {
+            public void focusGained(java.awt.event.FocusEvent evt)
+            {
+                exMinterSearchInputFocusGained(evt);
+            }
+        });
+        exMinterSearchInput.addKeyListener(new java.awt.event.KeyAdapter()
+        {
+            public void keyReleased(java.awt.event.KeyEvent evt)
+            {
+                exMinterSearchInputKeyReleased(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 2;
+        exMinterSearchPanel.add(exMinterSearchInput, gridBagConstraints);
+
+        exMintersSearchInfoLabel.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        exMintersSearchInfoLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        exMintersSearchInfoLabel.setText("Search for ex minter");
+        exMintersSearchInfoLabel.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(5, 0, 5, 0);
+        exMinterSearchPanel.add(exMintersSearchInfoLabel, gridBagConstraints);
+
+        exMinterSearchButton.setText("Search");
+        exMinterSearchButton.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                exMinterSearchButtonActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 5, 0, 0);
+        exMinterSearchPanel.add(exMinterSearchButton, gridBagConstraints);
+
+        exMinterCaseCheckBox.setText("Case sensitive");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 60, 0, 5);
+        exMinterSearchPanel.add(exMinterCaseCheckBox, gridBagConstraints);
+
+        exMinterListInfoLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        exMinterListInfoLabel.setText("<html><div style='text-align: center;'>No ex minters in list</div></html>");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.gridwidth = 3;
+        gridBagConstraints.insets = new java.awt.Insets(5, 0, 12, 0);
+        exMinterSearchPanel.add(exMinterListInfoLabel, gridBagConstraints);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        exMinterMenuPanel.add(exMinterSearchPanel, gridBagConstraints);
+
+        exMinterMenuScrollPane.setViewportView(exMinterMenuPanel);
+
+        exMintersTab.setTopComponent(exMinterMenuScrollPane);
+
+        exMintersTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        exMintersTableScrollpane.setViewportView(exMintersTable);
+
+        exMintersTab.setRightComponent(exMintersTableScrollpane);
+
+        jTabbedPane1.addTab("Ex Minters", new javax.swing.ImageIcon(getClass().getResource("/Images/account.png")), exMintersTab); // NOI18N
+
         chartsTab.setDividerLocation(250);
 
         javax.swing.GroupLayout chartPanelPlaceHolderLayout = new javax.swing.GroupLayout(chartPanelPlaceHolder);
@@ -2250,7 +2519,7 @@ public class MintingMonitor extends javax.swing.JPanel
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 586, Short.MAX_VALUE)
+            .addComponent(jTabbedPane1)
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -2344,12 +2613,12 @@ public class MintingMonitor extends javax.swing.JPanel
     {//GEN-HEADEREND:event_searchButtonActionPerformed
          if(searchResults.isEmpty())
         {
-            searchForMinter();
+            applySearch(mintersTable, searchInput, caseCheckbox.isSelected(), searchInfoLabel, mintersTableScrollpane,searchButton);
         }
         else
         {
             searchIndex = searchIndex + 1 > searchResults.size() - 1 ? 0 : searchIndex + 1;
-            goToSearchResult(searchResults.get(searchIndex));
+            goToSearchResult(searchResults.get(searchIndex), searchInfoLabel, searchInput, mintersTable, mintersTableScrollpane);
         }     
     }//GEN-LAST:event_searchButtonActionPerformed
 
@@ -2361,10 +2630,10 @@ public class MintingMonitor extends javax.swing.JPanel
         if(evt.getKeyCode() == KeyEvent.VK_ENTER && !searchResults.isEmpty())
         {
             searchIndex = searchIndex + 1 > searchResults.size() - 1 ? 0 : searchIndex + 1;
-            goToSearchResult(searchResults.get(searchIndex));
+            goToSearchResult(searchResults.get(searchIndex), searchInfoLabel, searchInput, mintersTable, mintersTableScrollpane);
         }  
         else
-            searchForMinter();
+            applySearch(mintersTable, searchInput, caseCheckbox.isSelected(), searchInfoLabel, mintersTableScrollpane,searchButton);
     }//GEN-LAST:event_searchInputKeyReleased
 
     private void searchInputFocusGained(java.awt.event.FocusEvent evt)//GEN-FIRST:event_searchInputFocusGained
@@ -2565,6 +2834,38 @@ public class MintingMonitor extends javax.swing.JPanel
         Utilities.updateSetting("autoStartMapping", String.valueOf(autoStartCheckbox.isSelected()), "settings.json");
     }//GEN-LAST:event_autoStartCheckboxActionPerformed
 
+    private void exMinterSearchInputFocusGained(java.awt.event.FocusEvent evt)//GEN-FIRST:event_exMinterSearchInputFocusGained
+    {//GEN-HEADEREND:event_exMinterSearchInputFocusGained
+        exMinterSearchInput.selectAll();
+    }//GEN-LAST:event_exMinterSearchInputFocusGained
+
+    private void exMinterSearchInputKeyReleased(java.awt.event.KeyEvent evt)//GEN-FIRST:event_exMinterSearchInputKeyReleased
+    {//GEN-HEADEREND:event_exMinterSearchInputKeyReleased
+        if(exMinterSearchInput.getText().isBlank())
+            exMinterSearchButton.setText("Search");
+        
+        if(evt.getKeyCode() == KeyEvent.VK_ENTER && !searchResults.isEmpty())
+        {
+            searchIndex = searchIndex + 1 > searchResults.size() - 1 ? 0 : searchIndex + 1;
+            goToSearchResult(searchResults.get(searchIndex), exMintersSearchInfoLabel, exMinterSearchInput, exMintersTable, exMintersTableScrollpane);
+        }  
+        else
+            applySearch(exMintersTable, exMinterSearchInput, exMinterCaseCheckBox.isSelected(), exMintersSearchInfoLabel, exMintersTableScrollpane,exMinterSearchButton);
+    }//GEN-LAST:event_exMinterSearchInputKeyReleased
+
+    private void exMinterSearchButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_exMinterSearchButtonActionPerformed
+    {//GEN-HEADEREND:event_exMinterSearchButtonActionPerformed
+        if(searchResults.isEmpty())
+        {
+            applySearch(exMintersTable, exMinterSearchInput, exMinterCaseCheckBox.isSelected(), exMintersSearchInfoLabel, exMintersTableScrollpane,exMinterSearchButton);
+        }
+        else
+        {
+            searchIndex = searchIndex + 1 > searchResults.size() - 1 ? 0 : searchIndex + 1;
+            goToSearchResult(searchResults.get(searchIndex), exMintersSearchInfoLabel, exMinterSearchInput, exMintersTable, exMintersTableScrollpane);
+        }   
+    }//GEN-LAST:event_exMinterSearchButtonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox autoStartCheckbox;
@@ -2581,6 +2882,17 @@ public class MintingMonitor extends javax.swing.JPanel
     private javax.swing.JButton continueButton;
     private javax.swing.JLabel dataTimeLabel;
     private javax.swing.JLabel dataTimeLabel1;
+    private javax.swing.JCheckBox exMinterCaseCheckBox;
+    private javax.swing.JLabel exMinterListInfoLabel;
+    private javax.swing.JPanel exMinterMenuPanel;
+    private javax.swing.JScrollPane exMinterMenuScrollPane;
+    private javax.swing.JButton exMinterSearchButton;
+    private javax.swing.JTextField exMinterSearchInput;
+    private javax.swing.JPanel exMinterSearchPanel;
+    private javax.swing.JLabel exMintersSearchInfoLabel;
+    private javax.swing.JSplitPane exMintersTab;
+    private javax.swing.JTable exMintersTable;
+    private javax.swing.JScrollPane exMintersTableScrollpane;
     private javax.swing.JButton expandButton;
     private javax.swing.JSlider hoursSlider;
     private javax.swing.JLabel jLabel2;

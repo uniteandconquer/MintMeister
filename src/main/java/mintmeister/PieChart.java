@@ -70,6 +70,9 @@ public class PieChart
             case "Active/inactive ratio network":
                     dataset = createActiveRatioDataset(levelType,tableTime);
                 break;
+            case "Penalty distribution":
+                dataset = createPenaltyDistDataset(maxLevel, tableTime, mintersTable);
+                break;
         }
         
         if(dataset == null)
@@ -181,6 +184,37 @@ public class PieChart
         CategoryDataset dataset = DatasetUtils.createCategoryDataset(levels,new String[]{"All levels"},data);
 
         subtitle = "Total of " + mintersTable.getRowCount() + " minters found in network";
+        subtitle += " on " + Utilities.DateFormatShort(tableTime);
+        
+        return dataset;
+    }
+    
+    
+    
+    private CategoryDataset createPenaltyDistDataset(int maxLevel,long tableTime,JTable exMintersTable)
+    {        
+        String[] levels = new String[maxLevel];
+        for(int i = 0; i < maxLevel;i++)
+            levels[i] = "Level " + i + " penalties";
+        
+        double[][] data = new double[maxLevel][1]; //[tier][level]
+        
+        int totalPenalized = 0;
+        
+        for(int i = 0; i < exMintersTable.getRowCount();i++)
+        {    
+            if((int) exMintersTable.getValueAt(i, 6) >= 0 )
+                continue;
+            
+            totalPenalized++;
+            
+            int level = (int) exMintersTable.getValueAt(i, 2); 
+            data[level][0]++;           
+        }
+        
+        CategoryDataset dataset = DatasetUtils.createCategoryDataset(levels,new String[]{"Penalty distribution per level"},data);
+
+        subtitle = "Total of " + totalPenalized + " penalized minters found in your minters list";
         subtitle += " on " + Utilities.DateFormatShort(tableTime);
         
         return dataset;

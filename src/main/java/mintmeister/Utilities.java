@@ -416,6 +416,8 @@ public class Utilities
             BackgroundService.AppendLog(e);
         }
     } 
+    
+    
     public static DefaultTableModel BuildTableModel(String table,ResultSet rs, boolean isEditable)
     {
         try
