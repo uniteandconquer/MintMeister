@@ -32,7 +32,7 @@ public class BackgroundService
     protected char [] password;
     private static final Logger logger = Logger.getLogger("debug_log");  
     private FileHandler fileHandler;  
-    protected static final String BUILDVERSION = "MintMeister 1.1.1";    
+    protected static final String BUILDVERSION = "MintMeister 1.1.2";    
     protected static boolean ISMAPPING;
     protected static SplashScreen SPLASH;
     protected static int totalApiCalls;

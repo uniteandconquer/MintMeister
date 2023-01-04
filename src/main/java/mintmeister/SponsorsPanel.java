@@ -1543,8 +1543,8 @@ private void extractRewardShares(Connection connection) throws ConnectException,
             
 //            System.err.println("UNCOMMENT LTS=0 WHEN UPDATING FROM DROPPED SPONSORS/SPONSEES TABLES");
 //            System.err.println("REMOVE DROP TABLE STATEMENT??");
-//            dbManager.ExecuteUpdate("drop table sponsors", sponsorsConnection);
-//            dbManager.ExecuteUpdate("drop table sponsees", sponsorsConnection);
+            dbManager.ExecuteUpdate("drop table sponsors", sponsorsConnection);
+            dbManager.ExecuteUpdate("drop table sponsees", sponsorsConnection);
             
             
             if (!dbManager.TableExists("sponsors", sponsorsConnection));
@@ -1667,7 +1667,7 @@ private void extractRewardShares(Connection connection) throws ConnectException,
                 }
                 else
                 {
-                    int existingSponsees = (int) dbManager.GetFirstItem("sponsors", "sponsee_count", sponsorsConnection);                    
+                    int existingSponsees = (int) dbManager.tryGetItemValue("sponsors", "sponsee_count", "address", Utilities.SingleQuotedString(creatorAddress), sponsorsConnection); // dbManager.GetFirstItem("sponsors", "sponsee_count", sponsorsConnection);                    
                     
                     dbManager.ChangeValue("sponsors", "sponsee_count", String.valueOf((existingSponsees + sponseesAdded)), "address",
                             Utilities.SingleQuotedString(creatorAddress), sponsorsConnection);
@@ -1818,11 +1818,13 @@ private void extractRewardShares(Connection connection) throws ConnectException,
 
     private int updateSponsees(String sponsorAddress, String sponsorName,long lastTimestamp,Connection sponsorsConnection, Connection namesConnection) throws TimeoutException, IOException, SQLException
     {
-        ArrayList<String> sponseesList = new ArrayList<>();           
+        ArrayList<String> sponseesList = new ArrayList<>();    
+        
+//        System.err.println("updating sponsees for " + (sponsorName.isBlank() ? sponsorAddress : sponsorName));
         
         
 //        System.err.println("UNCOMMENT LTS=0 WHEN UPDATING FROM DROPPED SPONSORS/SPONSEES TABLES");
-//        lastTimestamp = 0;
+        lastTimestamp = 0;
                 
 
         Statement sponsorStatement = sponsorsConnection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -1953,6 +1955,8 @@ private void extractRewardShares(Connection connection) throws ConnectException,
             if(LOOKUP_HALTED)
                 return -1;
         }
+        
+//        System.err.println("found " + sponseesList.size() + " sponsees");
         
         return sponseesList.size();
         
